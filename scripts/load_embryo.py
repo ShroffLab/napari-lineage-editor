@@ -18,9 +18,11 @@ import dask
 import napari
 from dataset_registry import Registry
 from napari_track_edit.data_views import TracksViewer
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QCompleter,
     QHBoxLayout,
     QLineEdit,
     QPushButton,
@@ -100,6 +102,10 @@ class EmbryoLoaderWidget(QWidget):
 
         self._name_edit = QLineEdit()
         self._name_edit.setPlaceholderText("Cell name, e.g. ABa")
+        self._name_completer = QCompleter([])
+        self._name_completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self._name_completer.setFilterMode(Qt.MatchContains)
+        self._name_edit.setCompleter(self._name_completer)
         go_to_start_button = QPushButton("Go to start")
         go_to_start_button.clicked.connect(lambda: self._go_to_named_cell(end=False))
         go_to_end_button = QPushButton("Go to end")
@@ -184,14 +190,17 @@ class EmbryoLoaderWidget(QWidget):
     def _refresh_name_cache(self, tracks) -> None:
         """Rebuild the `{name: tracklet id}` cache `_go_to_named_cell` uses.
 
-        Name maps 1:1 to tracklet.
+        Name maps 1:1 to tracklet. Also refreshes the cell-name text field's
+        autocomplete suggestions to match.
         """
         node_ids = list(tracks.graph_solution.node_ids())
         names = tracks.get_nodes_attr(node_ids, "name")
-        self._track_ids_by_name_by_tracks[id(tracks)] = {
+        track_ids_by_name = {
             name: tracks.get_track_id(node_id)
             for node_id, name in zip(node_ids, names, strict=True)
         }
+        self._track_ids_by_name_by_tracks[id(tracks)] = track_ids_by_name
+        self._name_completer.model().setStringList(sorted(track_ids_by_name))
 
     def _go_to_named_cell(self, *, end: bool) -> None:
         """Select the start (or end) node of the named cell's tracklet in the active lineage.
