@@ -5,7 +5,6 @@ from importlib.metadata import PackageNotFoundError, version
 from ._celegans_metadata import registry
 from ._load_images import load_images
 from ._load_lineages import (
-    LINEAGE_NODE_NAME_MAP,
     load_geff_lineage,
     load_lineages,
     load_linked_lineage,
@@ -22,7 +21,6 @@ except PackageNotFoundError:  # package is not installed
 # Everything listed here becomes the public API and gets an API docs page.
 # Implementation lives in underscore-prefixed modules; see CONTRIBUTING.md.
 __all__ = [
-    "LINEAGE_NODE_NAME_MAP",
     "__version__",
     "load_geff_lineage",
     "load_images",
