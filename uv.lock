@@ -2465,7 +2465,7 @@ requires-dist = [
     { name = "geff", specifier = ">=1.3,<2" },
     { name = "janelia-pathlib", specifier = ">=0.1.1,<0.2" },
     { name = "napari", extras = ["pyqt6"], specifier = ">=0.7.1,<0.10" },
-    { name = "napari-track-edit", editable = "../../tracker/napari-track-edit" },
+    { name = "napari-track-edit", git = "https://github.com/live-image-tracking-tools/napari-track-edit?tag=celegans-editing" },
     { name = "tifffile", specifier = ">=2025,<2026" },
 ]
 
@@ -2536,7 +2536,8 @@ wheels = [
 
 [[package]]
 name = "napari-track-edit"
-source = { editable = "../../tracker/napari-track-edit" }
+version = "1.1.1.dev2+g839936dc9"
+source = { git = "https://github.com/live-image-tracking-tools/napari-track-edit?tag=celegans-editing#839936dc9b5e5f6383819a4e850fa27f0719e120" }
 dependencies = [
     { name = "blosc2" },
     { name = "dask", extra = ["array"] },
@@ -2560,69 +2561,6 @@ dependencies = [
     { name = "tqdm" },
     { name = "wgpu" },
     { name = "zarr" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "blosc2", specifier = ">=4.11,<4.12" },
-    { name = "dask", extras = ["array"], specifier = ">=2021.10.0" },
-    { name = "fastplotlib", specifier = ">=0.6.1,<0.7" },
-    { name = "fonticon-fontawesome6", specifier = ">=6,<7" },
-    { name = "funtracks", specifier = ">=2.2.0,<3" },
-    { name = "gurobipy", marker = "extra == 'gurobi'" },
-    { name = "gurobipy", marker = "extra == 'gurobi12'", specifier = ">=12,<13" },
-    { name = "gurobipy", marker = "extra == 'gurobi13'", specifier = ">=13,<14" },
-    { name = "lxml-html-clean", specifier = ">=0.4,<1" },
-    { name = "magicgui", specifier = ">=0.10.1" },
-    { name = "motile", specifier = ">=0.4,<1" },
-    { name = "napari", specifier = ">=0.7.1,<0.10.0" },
-    { name = "napari-orthogonal-views", specifier = ">=0.5.0" },
-    { name = "numba", marker = "extra == 'numba'", specifier = ">=0.62.1" },
-    { name = "numpy", specifier = ">=2,<3" },
-    { name = "platformdirs", specifier = ">=4,<5" },
-    { name = "psygnal", specifier = ">=0.15.1,<0.16" },
-    { name = "pydantic", specifier = ">=2,<3" },
-    { name = "pygfx", specifier = "==0.15.3" },
-    { name = "pyqt6", marker = "extra == 'all'", specifier = ">=6.7,<7" },
-    { name = "pyqtgraph", specifier = ">=0.13,<1" },
-    { name = "qtpy", specifier = ">=2.4,<3" },
-    { name = "scikit-image", specifier = ">=0.25" },
-    { name = "tifffile", extras = ["all"], specifier = ">=2025.1.10" },
-    { name = "tqdm", specifier = ">=4,<5" },
-    { name = "wgpu", specifier = ">=0.29,<0.30" },
-    { name = "zarr", specifier = ">=2.18.7,<4" },
-]
-provides-extras = ["numba", "gurobi", "gurobi12", "gurobi13", "all"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "myst-parser", specifier = ">=4,<5" },
-    { name = "numba", specifier = ">=0.62.1" },
-    { name = "pre-commit", specifier = ">=4,<5" },
-    { name = "pyqt6", specifier = ">=6.7,<7" },
-    { name = "pytest", specifier = ">=8.3,<9" },
-    { name = "pytest-benchmark", specifier = ">=5,<6" },
-    { name = "pytest-cov", specifier = ">=6" },
-    { name = "pytest-qt", specifier = ">=4.4,<5" },
-    { name = "ruff", specifier = ">=0.13" },
-    { name = "sphinx", specifier = ">=8,<9" },
-    { name = "sphinx-autoapi", specifier = ">=3,<4" },
-    { name = "sphinx-rtd-theme", specifier = ">=3,<4" },
-    { name = "sphinxcontrib-video", specifier = ">=0.4.1" },
-]
-docs = [
-    { name = "myst-parser", specifier = ">=4,<5" },
-    { name = "sphinx", specifier = ">=8,<9" },
-    { name = "sphinx-autoapi", specifier = ">=3,<4" },
-    { name = "sphinx-rtd-theme", specifier = ">=3,<4" },
-    { name = "sphinxcontrib-video", specifier = ">=0.4.1" },
-]
-testing = [
-    { name = "pyqt6", specifier = ">=6.7,<7" },
-    { name = "pytest", specifier = ">=8.3,<9" },
-    { name = "pytest-benchmark", specifier = ">=5,<6" },
-    { name = "pytest-cov", specifier = ">=6" },
-    { name = "pytest-qt", specifier = ">=4.4,<5" },
 ]
 
 [[package]]

@@ -41,7 +41,7 @@ repository = "https://github.com/ShroffLab/napari_lineage_editor"
 # TODO: remove once the string-features-missing-from-table fix lands upstream
 # (see napari-track-edit/scratch/string-features-missing-from-table.md).
 [tool.uv.sources]
-napari-track-edit = { path = "../../tracker/napari-track-edit", editable = true }
+napari-track-edit = { git = "https://github.com/live-image-tracking-tools/napari-track-edit", tag = "celegans-editing" }
 
 # https://peps.python.org/pep-0735/
 [dependency-groups]

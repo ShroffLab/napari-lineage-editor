@@ -79,7 +79,6 @@ class EmbryoLoaderWidget(QWidget):
         # doesn't rescan every node on every click.
         self._track_ids_by_name_by_tracks: dict[int, dict[str, int]] = {}
         self._sulston_geff_path = _sulston_geff_path(registry)
-        TracksViewer.get_instance(viewer).tracks_updated.connect(self._on_tracks_updated)
 
         self._samples_by_name = {
             sample.name: sample
@@ -177,42 +176,18 @@ class EmbryoLoaderWidget(QWidget):
         self._tracks_items_by_name[tracks_name] = new_item
 
         if "name" in tracks.features:
-            self._refresh_name_cache(tracks_viewer, tracks)
+            self._refresh_name_cache(tracks)
+            points_layer = tracks_viewer.tracking_layers.points_layer
+            if points_layer is not None:
+                points_layer.text = "Name"
 
-    def _on_tracks_updated(self, *_args) -> None:
-        """Rebuild the name cache and re-apply the points layer's `name` text.
+    def _refresh_name_cache(self, tracks) -> None:
+        """Rebuild the `{name: tracklet id}` cache `_go_to_named_cell` uses.
 
-        `TrackPoints._refresh` (called on basically any tracks mutation --
-        edits, undo/redo, new nodes) unconditionally resets the points
-        layer's `properties` to just `{"node_id": ...}`, wiping whatever
-        `_refresh_name_cache` added last time. `TracksViewer.tracks_updated`
-        fires right after that reset, so reconnecting here keeps both the
-        display text and the "go to start/end" cache in sync with it rather
-        than silently going stale after the first edit.
+        Name maps 1:1 to tracklet.
         """
-        tracks_viewer = TracksViewer.get_instance(self._viewer)
-        tracks = tracks_viewer.tracks
-        if tracks is not None and "name" in tracks.features:
-            self._refresh_name_cache(tracks_viewer, tracks)
-
-    def _refresh_name_cache(self, tracks_viewer, tracks) -> None:
-        """Re-apply `tracks`' `name` feature to the points layer and rebuild the nav cache.
-
-        `napari_track_edit`'s points layer only ever carries a `node_id`
-        property (see `TrackPoints.__init__`/`_refresh`), so no other
-        feature -- including `name` -- is otherwise visible to napari's
-        "display text" checkbox. Reaches into the live points layer and adds
-        `name` as a property, then sets it as the displayed text, and
-        rebuilds the `{name: tracklet id}` cache `_go_to_named_cell` uses
-        (name maps 1:1 to tracklet).
-        """
-        points_layer = tracks_viewer.tracking_layers.points_layer
-        if points_layer is None:
-            return
-        node_ids = list(points_layer.properties["node_id"])
+        node_ids = list(tracks.graph_solution.node_ids())
         names = tracks.get_nodes_attr(node_ids, "name")
-        points_layer.properties = {**points_layer.properties, "name": names}
-        points_layer.text = "name"
         self._track_ids_by_name_by_tracks[id(tracks)] = {
             name: tracks.get_track_id(node_id)
             for node_id, name in zip(node_ids, names, strict=True)
