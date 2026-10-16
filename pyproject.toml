@@ -24,7 +24,13 @@ classifiers = [
     "Typing :: Typed",
 ]
 dynamic = ["version"]
-dependencies = []
+dependencies = [
+    "dataset-registry>=0.1.1,<0.2",
+    "janelia-pathlib>=0.1.1,<0.2",
+    "napari[pyqt6]>=0.7.1,<0.10",
+    "tifffile>=2025,<2026",
+    "dask>=2025,<2026",
+]
 
 [project.urls]
 homepage = "https://github.com/ShroffLab/napari_lineage_editor"
