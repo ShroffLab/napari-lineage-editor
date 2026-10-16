@@ -101,28 +101,21 @@ def resolve_division_edges(lineage: pd.DataFrame, geff_lineage: pd.DataFrame) ->
     return lineage
 
 
-def load_linked_lineage(path: str) -> pd.DataFrame:
-    """Load a tab-separated lineage file that already has real `cell_id`/`parent_id` links.
-
-    Unlike `load_lineages` (which infers links by name continuation for a
-    name-only, comma-separated CSV), this is for files that already encode
-    the lineage structure directly -- e.g. the zenodo 6460375 tracks.txt
-    format, with columns `t, z, y, x, cell_id, parent_id, track_id, radius,
-    name, div_state` (a representation whose `has_links` metadata is
-    `True`).
+def load_linked_lineage(path: str, time_offset: int = 0) -> pd.DataFrame:
+    """Load a lineage CSV that already has real `cell_id`/`parent_id` links.
 
     Args:
-        path: Path to the tab-separated lineage file.
-
+        path: Path to the lineage CSV.
+        time_offset: Added to every row's `time` value
     Returns:
-        The file's rows, in file order, renamed so `t` reads as `time` (to
-        match `load_lineages`'s output shape) -- every other column
-        (`cell_id`, `parent_id`, `name`, etc.) is passed through unchanged.
+        The file's rows, in file order, offset by `time_offset`.
     """
-    return pd.read_csv(path, sep="\t").rename(columns={"t": "time"})
+    lineage = pd.read_csv(path)
+    lineage["time"] += time_offset
+    return lineage
 
 
-def load_lineages(path: str, geff_lineage_path: str | None = None) -> pd.DataFrame:
+def load_lineages(path: str, sulston_lineage_path: str | None = None) -> pd.DataFrame:
     """Load a name-only lineage CSV and resolve `parent_id` for every row.
 
     Reads a CSV with columns `time, cell_name, x, y, z, diameter` (one row
@@ -131,7 +124,7 @@ def load_lineages(path: str, geff_lineage_path: str | None = None) -> pd.DataFra
 
     1. Continuation: the `cell_id` of the row with the same `cell_name` at
        `time - 1`, if any.
-    2. Division (only if `geff_lineage_path` is given): for a cell's first-
+    2. Division (only if `sulston_lineage_path` is given): for a cell's first-
        appearance row (born from a division, so step 1 finds nothing), look
        up its true parent *name* from the geff lineage tree (which already
        has correct name-based linking, e.g. `"ABa"`'s parent is `"AB"`), then
@@ -142,9 +135,8 @@ def load_lineages(path: str, geff_lineage_path: str | None = None) -> pd.DataFra
 
     Args:
         path: Path to the lineage CSV.
-        geff_lineage_path: Path to a `.geff` lineage tree for the same
-            lineage (see `load_geff_lineage`), used to resolve division
-            edges. If omitted, division edges are left unresolved
+        geff_lineage_path: Path to a `.geff` lineage tree for the sulston lineage, used to resolve
+            division edges. If omitted, division edges are left unresolved
             (`parent_id == -1` for every division-point row).
 
     Returns:
@@ -161,47 +153,31 @@ def load_lineages(path: str, geff_lineage_path: str | None = None) -> pd.DataFra
         for time, cell_name in zip(df["time"], df["cell_name"], strict=True)
     ]
 
-    if geff_lineage_path is not None:
-        geff_lineage = load_geff_lineage(geff_lineage_path)
+    if sulston_lineage_path is not None:
+        geff_lineage = load_geff_lineage(sulston_lineage_path)
         df = resolve_division_edges(df, geff_lineage)
     return df
 
 
-LOAD_LINEAGES_NODE_NAME_MAP = {
-    "time": "time",
-    "pos": ["z", "y", "x"],
-    "id": "cell_id",
-    "parent_id": "parent_id",
-    "name": "cell_name",
-}
-LOAD_LINKED_LINEAGE_NODE_NAME_MAP = {
-    "time": "time",
-    "pos": ["z", "y", "x"],
-    "id": "cell_id",
-    "parent_id": "parent_id",
-    "name": "name",
-}
 
 
-def tracks_from_lineage_df(
-    lineage: pd.DataFrame, node_name_map: dict[str, str | list[str]] | None = None
-) -> Tracks:
+def tracks_from_lineage_df(lineage: pd.DataFrame) -> Tracks:
     """Build a `funtracks` `Tracks` object from a lineage dataframe.
 
     Args:
         lineage: A dataframe with `time`, `x`, `y`, `z`, `cell_id`,
-            `parent_id`, and a cell-name column (e.g. from `load_lineages`
-            or `load_linked_lineage`).
-        node_name_map: `funtracks.import_export.tracks_from_df`'s
-            `node_name_map`. Defaults to the shape `load_lineages` produces
-            (name column `cell_name`); pass
-            `LOAD_LINKED_LINEAGE_NODE_NAME_MAP` for a `load_linked_lineage`
-            dataframe instead (name column `name`).
+            `parent_id`, `cell_name` columns (e.g. from ß`load_lineages` or
+            `load_linked_lineage`).
 
     Returns:
         A `Tracks` object, ready to pass to
         `napari_track_edit`'s `TracksList.add_tracks`.
     """
-    if node_name_map is None:
-        node_name_map = LOAD_LINEAGES_NODE_NAME_MAP
-    return tracks_from_df(lineage, node_name_map=node_name_map)
+    LINEAGE_NODE_NAME_MAP = {
+        "time": "time",
+        "pos": ["z", "y", "x"],
+        "id": "cell_id",
+        "parent_id": "parent_id",
+        "name": "cell_name",
+    }
+    return tracks_from_df(lineage, node_name_map=LINEAGE_NODE_NAME_MAP)

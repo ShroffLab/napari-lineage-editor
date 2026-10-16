@@ -168,15 +168,14 @@ class EmbryoLoaderWidget(QWidget):
             return
 
         if representation.metadata.has_links:
-            lineage = nle.load_linked_lineage(representation.path)
-            tracks = nle.tracks_from_lineage_df(
-                lineage, node_name_map=nle.LOAD_LINKED_LINEAGE_NODE_NAME_MAP
+            lineage = nle.load_linked_lineage(
+                representation.path, time_offset=representation.metadata.time_offset or 0
             )
         else:
             lineage = nle.load_lineages(
-                representation.path, geff_lineage_path=self._sulston_geff_path
+                representation.path, sulston_lineage_path=self._sulston_geff_path
             )
-            tracks = nle.tracks_from_lineage_df(lineage)
+        tracks = nle.tracks_from_lineage_df(lineage)
         tracks_list.add_tracks(tracks, tracks_name)
         new_item = tracks_list.tracks_list.item(tracks_list.tracks_list.count() - 1)
         self._tracks_items_by_name[tracks_name] = new_item
