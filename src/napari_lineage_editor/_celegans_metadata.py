@@ -39,10 +39,16 @@ class CelegansImageRepMetadata(BaseModel):
 
 
 class CelegansLineageRepMetadata(BaseModel):
-    """Fields specific to a lineage representation."""
+    """Fields specific to a lineage representation.
 
-    # TODO: add fields for the lineage file format (e.g. file_pattern,
-    # start_time/end_time, column names, coordinate units).
+    `path` points directly at one CSV file (not a per-timepoint series) with
+    fixed columns `time, cell_name, x, y, z, diameter` -- one row per
+    annotated nucleus per timepoint. No fields of its own: the CSV's own
+    `time` column is the source of truth for timepoint range, rather than
+    redundantly declaring `start_time`/`end_time` in metadata.
+    """
+    has_links: bool = False
+    has_names: bool = True
 
 
 _SUBMODELS_BY_TYPE: dict[str, type[BaseModel]] = {
