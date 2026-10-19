@@ -55,6 +55,72 @@ def name_to_parent_name(geff_lineage: pd.DataFrame) -> dict[str, str]:
     }
 
 
+def children_of_name(geff_lineage: pd.DataFrame, name: str) -> list[str]:
+    """The Sulston lineage's names for `name`'s two daughter cells, if any.
+
+    Args:
+        geff_lineage: A `load_geff_lineage` dataframe (has `cell_id`,
+            `parent_id`, `name` columns).
+        name: A cell name to find the daughters of.
+
+    Returns:
+        The names of every row whose `parent_id` is `name`'s `cell_id`
+        (normally 0 or 2 -- a cell divides into exactly two daughters, or
+        not at all). Empty if `name` isn't in `geff_lineage` or has no
+        daughters recorded.
+    """
+    matches = geff_lineage.loc[geff_lineage["name"] == name, "cell_id"]
+    if matches.empty:
+        return []
+    cell_id = matches.iloc[0]
+    return geff_lineage.loc[geff_lineage["parent_id"] == cell_id, "name"].tolist()
+
+
+def suggest_child_names(
+    geff_lineage: pd.DataFrame,
+    new_parent_name: str,
+    old_child_names: tuple[str, str],
+) -> tuple[str, str] | None:
+    """Suggest new names for two daughter tracklets after their parent was renamed.
+
+    The naive guess for each daughter keeps its own last character (the
+    anterior/posterior/etc. suffix) but swaps on the new parent name, e.g.
+    renaming `"ABplapa"` to `"ABplapp"` naively suggests `"ABplapaa" ->
+    "ABplappa"` and `"ABplapap" -> "ABplappp"`. If that naive guess (as a
+    set, ignoring which physical child gets which name) matches the Sulston
+    lineage's actual two daughters of `new_parent_name`, the naive pairing is
+    used as-is; otherwise the two real Sulston names are assigned to the two
+    physical children in a fixed, deterministic (alphabetical) order, since
+    there's no way to know which physical daughter corresponds to which
+    Sulston name without further information (e.g. position).
+
+    Args:
+        geff_lineage: A `load_geff_lineage` dataframe, used to look up
+            `new_parent_name`'s real daughters.
+        new_parent_name: The parent tracklet's name after renaming.
+        old_child_names: The two daughter tracklets' current names, in a
+            fixed order matching the caller's own list of child track ids.
+
+    Returns:
+        The suggested new names for the two daughters, in the same order as
+        `old_child_names`, or `None` if `new_parent_name` has no two
+        daughters recorded in `geff_lineage` (nothing to suggest).
+    """
+    sulston_children = children_of_name(geff_lineage, new_parent_name)
+    if len(sulston_children) != 2:
+        return None
+
+    naive_guess = tuple(new_parent_name + old_name[-1] for old_name in old_child_names)
+    if set(naive_guess) == set(sulston_children):
+        return naive_guess
+
+    # No way to tell which physical child is which Sulston daughter without
+    # more information (e.g. position) -- sort both arbitrarily but
+    # deterministically, rather than guessing at random.
+    ordered = sorted(sulston_children)
+    return (ordered[0], ordered[1])
+
+
 def resolve_division_edges(lineage: pd.DataFrame, geff_lineage: pd.DataFrame) -> pd.DataFrame:
     """Fill in `parent_id` for `lineage`'s division-point rows, using `geff_lineage`'s real linking.
 
@@ -135,9 +201,9 @@ def load_lineages(path: str, sulston_lineage_path: str | None = None) -> pd.Data
 
     Args:
         path: Path to the lineage CSV.
-        geff_lineage_path: Path to a `.geff` lineage tree for the sulston lineage, used to resolve
-            division edges. If omitted, division edges are left unresolved
-            (`parent_id == -1` for every division-point row).
+        sulston_lineage_path: Path to a `.geff` lineage tree for the sulston lineage, used to
+            resolve division edges. If omitted, division edges are left
+            unresolved (`parent_id == -1` for every division-point row).
 
     Returns:
         The CSV's rows, in file order, with added `cell_id` and `parent_id`
