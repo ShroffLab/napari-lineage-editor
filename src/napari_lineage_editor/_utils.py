@@ -1,3 +1,10 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import networkx as nx
+
 
 def suggest_child_names(
     sulston_lineage: nx.DiGraph,
@@ -18,7 +25,7 @@ def suggest_child_names(
     Sulston name without further information (e.g. position).
 
     Args:
-        sulston_lineage: 
+        sulston_lineage: the sulston linneage to use for suggesting new names
         new_parent_name: The parent tracklet's name after renaming.
         old_child_names: The two daughter tracklets' current names, in a
             fixed order matching the caller's own list of child track ids.
@@ -32,7 +39,8 @@ def suggest_child_names(
     if len(sulston_children) != 2:
         return None
 
-    naive_guess = tuple(new_parent_name + old_name[-1] for old_name in old_child_names)
+    child1, child2 = old_child_names
+    naive_guess = (new_parent_name + child1[-1], new_parent_name + child2[-1])
     if set(naive_guess) == set(sulston_children):
         return naive_guess
 
@@ -41,4 +49,3 @@ def suggest_child_names(
     # deterministically, rather than guessing at random.
     ordered = sorted(sulston_children)
     return (ordered[0], ordered[1])
-
