@@ -5,7 +5,7 @@ import dask.array as da
 import tifffile
 from dask import delayed
 
-from napari_lineage_editor._celegans_metadata import CelegansRepMetadata
+from napari_lineage_editor.data._celegans_metadata import CelegansRepMetadata
 
 # Caches whole frames (one timepoint, or one timepoint-slice for embryo 3) so
 # napari re-rendering the same slice while scrubbing the time/z sliders

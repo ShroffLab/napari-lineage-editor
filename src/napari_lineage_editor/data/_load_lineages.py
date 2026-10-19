@@ -1,4 +1,5 @@
 import geff
+import networkx as nx
 import pandas as pd
 from funtracks.data_model.tracks import Tracks
 from funtracks.import_export import tracks_from_df
@@ -224,6 +225,30 @@ def load_lineages(path: str, sulston_lineage_path: str | None = None) -> pd.Data
         df = resolve_division_edges(df, geff_lineage)
     return df
 
+
+def nx_from_lineage_df(lineage: pd.DataFrame) -> nx.DiGraph:
+    """Build a `networkx.DiGraph` from a lineage dataframe, for `traccuracy`'s `TrackingGraph`.
+
+    Args:
+        lineage: A dataframe with `time`, `x`, `y`, `z`, `cell_id`,
+            `parent_id`, `cell_name` columns (e.g. from `load_lineages` or
+            `load_linked_lineage`).
+
+    Returns:
+        One node per row, keyed by `cell_id`, with `t` (time), `x`, `y`,
+        `z`, and `name` (the row's `cell_name`) attributes. One edge per row
+        with a resolvable `parent_id` (`parent_id != -1`), directed from
+        parent to child.
+    """
+    graph = nx.DiGraph()
+    for row in lineage.itertuples():
+        graph.add_node(
+            row.cell_id, t=row.time, x=row.x, y=row.y, z=row.z, name=row.cell_name
+        )
+    for row in lineage.itertuples():
+        if row.parent_id != -1:
+            graph.add_edge(row.parent_id, row.cell_id)
+    return graph
 
 
 
