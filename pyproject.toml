@@ -32,14 +32,13 @@ dependencies = [
     "dask>=2025,<2026",
     "geff>=1.3,<2",
     "napari-track-edit>=1.1,<2",
+    "traccuracy>=0.4.3",
 ]
 
 [project.urls]
 homepage = "https://github.com/ShroffLab/napari_lineage_editor"
 repository = "https://github.com/ShroffLab/napari_lineage_editor"
 
-# TODO: remove once the string-features-missing-from-table fix lands upstream
-# (see napari-track-edit/scratch/string-features-missing-from-table.md).
 [tool.uv.sources]
 napari-track-edit = { git = "https://github.com/live-image-tracking-tools/napari-track-edit", tag = "celegans-editing" }
 

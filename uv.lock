@@ -483,11 +483,14 @@ wheels = [
 
 [[package]]
 name = "click"
-version = "8.5.0"
+version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c7/0e/7fa0ef50764b67090eca4114772a2abf8b6148198475e54c660b97caeee6/click-8.5.0.tar.gz", hash = "sha256:ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34", size = 382235, upload-time = "2026-08-26T13:33:14.56Z" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b9/2e/0090cbf739cee7d23781ad4b89a9894a41538e4fcf4c31dcdd705b78eb8b/click-8.1.8.tar.gz", hash = "sha256:ed53c9d8990d83c2a27deae68e4ee337473f6330c040a31d4225c9574d16096a", size = 226593, upload-time = "2024-12-21T18:38:44.339Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/50/6c0d534c5f134586a8e1ba4e330569e32f057e33372ae556463212fb4cd3/click-8.5.0-py3-none-any.whl", hash = "sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360", size = 125251, upload-time = "2026-08-26T13:33:12.928Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/d4/7ebdbd03970677812aac39c869717059dbb71a4cfc033ca6e5221787892c/click-8.1.8-py3-none-any.whl", hash = "sha256:63c132bbbed01578a06712a2d1f497bb62d9c1c0d329b7903a866228027263b2", size = 98188, upload-time = "2024-12-21T18:38:41.666Z" },
 ]
 
 [[package]]
@@ -845,6 +848,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/25/71/80cc718ff6d7abfbabacb1f57aaa42e9c1552bfdd01e64ddd704e4a03638/donfig-0.8.1.post1.tar.gz", hash = "sha256:3bef3413a4c1c601b585e8d297256d0c1470ea012afa6e8461dc28bfb7c23f52", size = 19506, upload-time = "2024-05-23T14:14:31.513Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0c/d5/c5db1ea3394c6e1732fb3286b3bd878b59507a8f77d32a2cebda7d7b7cd4/donfig-0.8.1.post1-py3-none-any.whl", hash = "sha256:2a3175ce74a06109ff9307d90a230f81215cbac9a751f4d1c6194644b8204f9d", size = 21592, upload-time = "2024-05-23T14:13:55.283Z" },
+]
+
+[[package]]
+name = "et-xmlfile"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/38/af70d7ab1ae9d4da450eeec1fa3918940a5fafb9055e934af8d6eb0c2313/et_xmlfile-2.0.0.tar.gz", hash = "sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54", size = 17234, upload-time = "2024-10-25T17:25:40.039Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/8b/5fe2cc11fee489817272089c4203e679c63b570a5aaeb18d852ae3cbba6a/et_xmlfile-2.0.0-py3-none-any.whl", hash = "sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa", size = 18059, upload-time = "2024-10-25T17:25:39.051Z" },
 ]
 
 [[package]]
@@ -2442,6 +2454,7 @@ dependencies = [
     { name = "napari", extra = ["pyqt6"] },
     { name = "napari-track-edit" },
     { name = "tifffile" },
+    { name = "traccuracy" },
 ]
 
 [package.dev-dependencies]
@@ -2467,6 +2480,7 @@ requires-dist = [
     { name = "napari", extras = ["pyqt6"], specifier = ">=0.7.1,<0.10" },
     { name = "napari-track-edit", git = "https://github.com/live-image-tracking-tools/napari-track-edit?tag=celegans-editing" },
     { name = "tifffile", specifier = ">=2025,<2026" },
+    { name = "traccuracy", specifier = ">=0.4.3" },
 ]
 
 [package.metadata.requires-dev]
@@ -2536,8 +2550,8 @@ wheels = [
 
 [[package]]
 name = "napari-track-edit"
-version = "1.1.1.dev2+g839936dc9"
-source = { git = "https://github.com/live-image-tracking-tools/napari-track-edit?tag=celegans-editing#839936dc9b5e5f6383819a4e850fa27f0719e120" }
+version = "1.1.1.dev6+g9706cfa62"
+source = { git = "https://github.com/live-image-tracking-tools/napari-track-edit?tag=celegans-editing#9706cfa624ba44a79e1d9b18818d08696b8d5f6a" }
 dependencies = [
     { name = "blosc2" },
     { name = "dask", extra = ["array"] },
@@ -2893,6 +2907,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/9b/21/f6ef335f6e65724aa78b8d792b48d40a48c381715f1e62f5a5049e09d07e/opencv_python_headless-5.0.0.93-cp37-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:ed709fdf9aa0bd1f2ed8549e71d19449b03a675bb581eb292285f6861953be37", size = 61204038, upload-time = "2026-07-02T06:56:41.823Z" },
     { url = "https://files.pythonhosted.org/packages/d0/8f/b8756467ea991449a293797f6b3fa80fcfdd29598a0a60d1cd5715b96e61/opencv_python_headless-5.0.0.93-cp37-abi3-win32.whl", hash = "sha256:c6bcd96b185975ea240d22cfdb15a1f6d080cc95264cfbe2621f21bb144d89b9", size = 35411237, upload-time = "2026-07-02T05:50:12.901Z" },
     { url = "https://files.pythonhosted.org/packages/b8/88/763b967f7efd7226b82c9fae16d560cba049b1f0c036647e65c610fd636e/opencv_python_headless-5.0.0.93-cp37-abi3-win_amd64.whl", hash = "sha256:829717b6a95554f273e49e357cee3b3a2a26b6f4842fbc1bed2b45bdd8f87e0e", size = 43825962, upload-time = "2026-07-02T05:50:09.627Z" },
+]
+
+[[package]]
+name = "openpyxl"
+version = "3.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "et-xmlfile" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3d/f9/88d94a75de065ea32619465d2f77b29a0469500e99012523b91cc4141cd1/openpyxl-3.1.5.tar.gz", hash = "sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050", size = 186464, upload-time = "2024-06-28T14:03:44.161Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c0/da/977ded879c29cbd04de313843e76868e6e13408a94ed6b987245dc7c8506/openpyxl-3.1.5-py2.py3-none-any.whl", hash = "sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2", size = 250910, upload-time = "2024-06-28T14:03:41.161Z" },
 ]
 
 [[package]]
@@ -3533,6 +3559,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/49/2e/ced460408999b33da6b31b0021b0f37d329e202d4169aeb164493778f25b/pygments-2.21.0.tar.gz", hash = "sha256:610ca751c9bc2492b38eb9a38a7fbc93edbbb2d7182edaf34e66ae493dee5c8c", size = 5005329, upload-time = "2026-08-17T08:02:48.824Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/71/46/17f022dd3e953bf20a04a028a21ec746d942f8d2af30fa0f124fa0e6a684/pygments-2.21.0-py3-none-any.whl", hash = "sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9", size = 1250147, upload-time = "2026-08-17T08:02:44.912Z" },
+]
+
+[[package]]
+name = "pylapy"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2b/1f/f1449f2039b83d2dd338b5d9921f7fb1bdf6343271c7e3ea4791bd1086ce/pylapy-1.1.0.tar.gz", hash = "sha256:51dbdb9d1726d878e14fa0e3d0000bde8aa5f0de883b7e042f7af0f77c2f681e", size = 16888, upload-time = "2025-10-17T09:11:40.878Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5a/d4/83e083412a041105355901393fd73d471ae952883a82e098b56012fb6aaa/pylapy-1.1.0-py3-none-any.whl", hash = "sha256:f3797057ef43428e3992cdea09ec74b5fdd6e6b18e49846b3d3d3a17de689b05", size = 15560, upload-time = "2025-10-17T09:11:39.77Z" },
+]
+
+[package.optional-dependencies]
+sparse = [
+    { name = "numba" },
+    { name = "scipy" },
 ]
 
 [[package]]
@@ -4308,6 +4352,28 @@ wheels = [
 ]
 
 [[package]]
+name = "skan"
+version = "0.13.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "imageio" },
+    { name = "matplotlib" },
+    { name = "networkx" },
+    { name = "numba" },
+    { name = "numpy" },
+    { name = "openpyxl" },
+    { name = "pandas" },
+    { name = "scikit-image" },
+    { name = "scipy" },
+    { name = "toolz" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/aa/4f/f50a606fdfba856fee46640e35c5f00307374e63cf6f9253db997017fec4/skan-0.13.1.tar.gz", hash = "sha256:d5a0f4eb30e88b3113ad419f87577e7b6412bcf14f61393b7968947b3ab60db0", size = 6743398, upload-time = "2026-02-06T05:33:32.064Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fd/2a/42e3621fc00b3f058b8602a4665030eed6ccb1a586f5c3f477ea46fa1242/skan-0.13.1-py3-none-any.whl", hash = "sha256:174c8ae26d098638b3869e812f809614c63b9e318861f7d5a36257f118d5aaca", size = 1557412, upload-time = "2026-02-06T05:33:30.252Z" },
+]
+
+[[package]]
 name = "sqlalchemy"
 version = "2.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -4507,6 +4573,32 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz", hash = "sha256:cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4", size = 171846, upload-time = "2026-09-11T07:25:16.601Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/03/921a3d3c75785aca9ebfbfcabfbc3a1be12e2ab5265deb026d55a5a3f83e/tqdm-4.70.1-py3-none-any.whl", hash = "sha256:c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73", size = 80199, upload-time = "2026-09-11T07:25:14.599Z" },
+]
+
+[[package]]
+name = "traccuracy"
+version = "0.4.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "geff" },
+    { name = "imagecodecs" },
+    { name = "networkx" },
+    { name = "numba" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+    { name = "pylapy", extra = ["sparse"] },
+    { name = "scikit-image" },
+    { name = "scipy" },
+    { name = "skan" },
+    { name = "tifffile" },
+    { name = "tqdm" },
+    { name = "typer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/30/cd/c31a16d65abdb1c4a43f9f348084cc5a72ef76a7c77107baa36ef9725c48/traccuracy-0.4.3.tar.gz", hash = "sha256:a1b9b5f1a56248a48ff0ed18456fb26e60b0d7142606a401c9878e30e7d753ef", size = 1288901, upload-time = "2025-12-16T20:08:02.836Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b5/49/860f4666cb46e0e8d4cc0ea292620cd7477fe85bb0ce1ae5e11b5ce31670/traccuracy-0.4.3-py3-none-any.whl", hash = "sha256:422275d8607b409985f8448234167b19f660899ee05a4467a3e8fad9716c630f", size = 69274, upload-time = "2025-12-16T20:08:01.418Z" },
 ]
 
 [[package]]
