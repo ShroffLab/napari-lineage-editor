@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from dataset_registry import Registry
 from pydantic import BaseModel, create_model, model_validator
@@ -87,6 +87,30 @@ class CelegansRepMetadata(_FlatRepFields):  # type: ignore[valid-type,misc]
     """
 
     type: Literal["image", "lineage"]
+
+    @model_validator(mode="before")  # type: ignore[untyped-decorator]
+    @classmethod
+    def _fill_own_submodel_defaults(cls, data: Any) -> Any:
+        """Apply `self.type`'s submodel defaults (e.g. `start_time=0`) before flat validation.
+
+        Every field here is declared `Optional[None]` so the flat shape can
+        hold either submodel's fields at once -- but that means an unset
+        field would otherwise read back as `None` instead of its real
+        submodel default (e.g. `CelegansImageRepMetadata.start_time`'s `0`).
+        Filling defaults in here, rather than requiring callers to go
+        through `.submodel()`, keeps direct attribute access like
+        `metadata.start_time` correct everywhere.
+        """
+        if not isinstance(data, dict) or "type" not in data:
+            return data
+        own_submodel = _SUBMODELS_BY_TYPE.get(data["type"])
+        if own_submodel is None:
+            return data
+        data = dict(data)
+        for field_name, field_info in own_submodel.model_fields.items():
+            if data.get(field_name) is None and not field_info.is_required():
+                data[field_name] = field_info.default
+        return data
 
     @model_validator(mode="after")  # type: ignore[untyped-decorator]
     def _check_fields_match_type(self) -> "CelegansRepMetadata":
