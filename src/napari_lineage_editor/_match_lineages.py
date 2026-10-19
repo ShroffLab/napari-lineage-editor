@@ -7,19 +7,21 @@ from traccuracy import TrackingGraph
 from traccuracy.matchers import PointMatcher
 
 
-def match_nodes(lineages: Sequence[nx.DiGraph]) -> dict[int, list[int]]:
+def match_nodes(lineages: Sequence[nx.DiGraph], threshold: float = 1) -> dict[int, list[int]]:
     """_summary_
 
     Args:
-        lineages (Sequence[nx.DiGraph]): _description_
+        lineages (Sequence[nx.DiGraph]): sequence of lineages, as networkx graphs, with the first
+            one being the "main" one that others are matched against
+        threshold: distance threshold to use for point matching
 
     Returns:
         dict[int, list[int]]: node ids in the first lineage, and the matches in the other lineages
     """
-    graphs = [TrackingGraph(lin) for lin in lineages]
+    graphs = [TrackingGraph(lin, location_keys=["z", "y", "x"]) for lin in lineages]
     assert len(lineages) > 1
     main = graphs[0]
-    matcher = PointMatcher(threshold=1)
+    matcher = PointMatcher(threshold=threshold)
     matches = defaultdict(list)
     for other in graphs[1:]:
         matched = matcher.compute_mapping(main, other)
