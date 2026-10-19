@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from funtracks.actions import Action, ActionGroup, BasicAction, UpdateNodeAttrs
 
 if TYPE_CHECKING:
-    import pandas as pd
+    import networkx as nx
     from funtracks.data_model import Tracks
 
 
@@ -94,7 +94,7 @@ class SetName(BasicAction):
 
 
 def _find_stale_tracklets(
-    sulston_lineage: pd.DataFrame,
+    sulston_lineage: nx.DiGraph,
     name_to_track_id: dict[str, int],
     old_name: str,
 ) -> list[int]:
@@ -110,7 +110,7 @@ def _find_stale_tracklets(
     with no current tracklet (nothing further to mark without more curation).
 
     Args:
-        sulston_lineage: A `load_geff_lineage` dataframe.
+        sulston_lineage: 
         name_to_track_id: `{current name: track_id}` for the editable lineage
             (see `EmbryoLoaderWidget._track_ids_by_name_by_tracks`).
         old_name: The name a tracklet had before being renamed away from it.
@@ -119,13 +119,12 @@ def _find_stale_tracklets(
         Every stale tracklet's track_id, in the order found (breadth-first
         from `old_name`'s immediate children downward).
     """
-    from ._load_lineages import children_of_name
 
     stale_track_ids = []
     names_to_check = [old_name]
     while names_to_check:
         current_name = names_to_check.pop(0)
-        for child_name in children_of_name(sulston_lineage, current_name):
+        for child_name in sulston_lineage.successors(current_name):
             child_track_id = name_to_track_id.get(child_name)
             if child_track_id is None:
                 continue
@@ -151,7 +150,7 @@ class UserSetName(ActionGroup):
         tracks: Tracks,
         node: int,
         name: str,
-        sulston_lineage: pd.DataFrame,
+        sulston_lineage: nx.DiGraph,
         name_to_track_id: dict[str, int],
         _top_level: bool = True,
     ):
@@ -160,8 +159,7 @@ class UserSetName(ActionGroup):
             tracks (Tracks): The tracks to rename a tracklet in.
             node (int): A node in the tracklet to rename.
             name (str): The tracklet's new name.
-            sulston_lineage (pd.DataFrame): A `load_geff_lineage` dataframe,
-                used to find downstream tracklets affected by the rename.
+            sulston_lineage
             name_to_track_id (dict[str, int]): `{current name: track_id}` for
                 this lineage (see
                 `EmbryoLoaderWidget._track_ids_by_name_by_tracks`), used the
@@ -208,7 +206,7 @@ class UserSwapNames(ActionGroup):
         tracks: Tracks,
         node_a: int,
         node_b: int,
-        sulston_lineage: pd.DataFrame,
+        sulston_lineage: nx.DiGraph,
         name_to_track_id: dict[str, int],
     ):
         """
@@ -216,7 +214,7 @@ class UserSwapNames(ActionGroup):
             tracks (Tracks): The tracks to swap names in.
             node_a (int): A node in the first tracklet.
             node_b (int): A node in the second tracklet.
-            sulston_lineage (pd.DataFrame): A `load_geff_lineage` dataframe,
+            sulston_lineage ,
                 used to find downstream tracklets affected by the swap.
             name_to_track_id (dict[str, int]): `{current name: track_id}` for
                 this lineage (see

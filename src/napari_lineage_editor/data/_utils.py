@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from pathlib import Path
-from ._load_lineages import load_geff_lineage
+from ._load_lineages import load_sulston_lineage
 import pandas as pd
 
 if TYPE_CHECKING:
@@ -17,4 +17,4 @@ def get_sulston(registry: Registry) -> pd.DataFrame | None:
     """Path to the registry's "Sulston" sample's lineage representation, or `None` if absent."""
     sulston_id = "sulston-axolotl"
     tracklet_repr_id = "lineage-tree-cockatoo"
-    return load_geff_lineage(registry.load_representation(sulston_id, tracklet_repr_id).path)
+    return load_sulston_lineage(registry.load_representation(sulston_id, tracklet_repr_id).path)
