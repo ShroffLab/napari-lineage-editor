@@ -134,3 +134,6 @@ exclude_lines = [
 
 [tool.coverage.run]
 source = ["src/napari_lineage_editor"]
+
+[tool.typos.default]
+extend-ignore-re = ['`"[^"`]*"`']  # ignore anything inside backticks and then quotes
