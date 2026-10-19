@@ -17,9 +17,8 @@ def _set_nodes_attr(tracks: Tracks, nodes: list[int], key: str, value: object) -
     `refresh.emit()` calls -- those only belong on the single enclosing
     action (e.g. `UserSwapNames`), not on each nested sub-step.
     """
-    return ActionGroup(
-        tracks, [UpdateNodeAttrs(tracks, node, {key: value}) for node in nodes]
-    )
+    return ActionGroup(tracks, [UpdateNodeAttrs(tracks, node, {key: value}) for node in nodes])
+
 
 UNRESOLVED_FEATURE_KEY = "unresolved"
 """Boolean node feature marking a tracklet as needing a name reviewed/assigned
@@ -67,9 +66,7 @@ class SetName(BasicAction):
         super().__init__(tracks)
         self.track_id = track_id
         self.nodes = [node for _time, node in tracks.get_track_node_times(track_id)]
-        self.prev_names = {
-            node: self.tracks.get_node_attr(node, "name") for node in self.nodes
-        }
+        self.prev_names = {node: self.tracks.get_node_attr(node, "name") for node in self.nodes}
         self.new_name = name
         self._apply()
 
@@ -110,7 +107,7 @@ def _find_stale_tracklets(
     with no current tracklet (nothing further to mark without more curation).
 
     Args:
-        sulston_lineage: 
+        sulston_lineage:
         name_to_track_id: `{current name: track_id}` for the editable lineage
             (see `EmbryoLoaderWidget._track_ids_by_name_by_tracks`).
         old_name: The name a tracklet had before being renamed away from it.
@@ -184,9 +181,7 @@ class UserSetName(ActionGroup):
                 for track_id in stale_track_ids
                 for _time, node in tracks.get_track_node_times(track_id)
             ]
-            self.actions.append(
-                _set_nodes_attr(tracks, stale_nodes, UNRESOLVED_FEATURE_KEY, True)
-            )
+            self.actions.append(_set_nodes_attr(tracks, stale_nodes, UNRESOLVED_FEATURE_KEY, True))
 
         if _top_level:
             self.tracks.action_history.add_new_action(self)
@@ -228,14 +223,10 @@ class UserSwapNames(ActionGroup):
         name_b = tracks.get_node_attr(node_b, "name")
 
         self.actions.append(
-            UserSetName(
-                tracks, node_a, name_b, sulston_lineage, name_to_track_id, _top_level=False
-            )
+            UserSetName(tracks, node_a, name_b, sulston_lineage, name_to_track_id, _top_level=False)
         )
         self.actions.append(
-            UserSetName(
-                tracks, node_b, name_a, sulston_lineage, name_to_track_id, _top_level=False
-            )
+            UserSetName(tracks, node_b, name_a, sulston_lineage, name_to_track_id, _top_level=False)
         )
 
         self.tracks.action_history.add_new_action(self)

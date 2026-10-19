@@ -74,12 +74,10 @@ def _flat_field_definitions() -> dict[str, tuple[type, None]]:
     return definitions
 
 
-_FlatRepFields = create_model(
-    "_FlatRepFields", __base__=BaseModel, **_flat_field_definitions()
-)
+_FlatRepFields = create_model("_FlatRepFields", __base__=BaseModel, **_flat_field_definitions())
 
 
-class CelegansRepMetadata(_FlatRepFields):
+class CelegansRepMetadata(_FlatRepFields):  # type: ignore[valid-type,misc]
     """This project's representation-level `metadata` fields, typed.
 
     `type` selects which of `_SUBMODELS_BY_TYPE` must validate against this
@@ -90,7 +88,7 @@ class CelegansRepMetadata(_FlatRepFields):
 
     type: Literal["image", "lineage"]
 
-    @model_validator(mode="after")
+    @model_validator(mode="after")  # type: ignore[untyped-decorator]
     def _check_fields_match_type(self) -> "CelegansRepMetadata":
         own_submodel = _SUBMODELS_BY_TYPE[self.type]
         own_fields = set(own_submodel.model_fields)
