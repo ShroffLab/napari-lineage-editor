@@ -24,6 +24,7 @@ from napari_lineage_editor.data import (
     load_images,
     load_lineage,
     registry,
+    save_tracks_to_csv,
     tracks_from_lineage_df,
 )
 from napari_lineage_editor.data._utils import to_local_path
@@ -31,6 +32,7 @@ from napari_lineage_editor.widgets import CellNavigatorWidget, ComparisonWidget,
 
 REGISTRY_PATH = "/Users/malinmayorc/projects/celegans-cell-id/wormguides-data/registry"
 CURATED_SUBSTRING = "curated-by-alyssa"
+RECONCILED_SUBSTRING = "reconciled-annotations"
 
 _ACTIVE_POINTS_SIZE = 5
 _DRIFT_POINTS_SIZE = 8
@@ -40,6 +42,14 @@ def _find_curated_repr_id(reg: Registry, sample_id: str) -> str | None:
     for repr_id in reg.list_representations(sample_id):
         representation = reg.load_representation(sample_id, repr_id)
         if representation.metadata.type == "lineage" and CURATED_SUBSTRING in repr_id:
+            return repr_id
+    return None
+
+
+def _find_reconciled_repr_id(reg: Registry, sample_id: str) -> str | None:
+    for repr_id in reg.list_representations(sample_id):
+        representation = reg.load_representation(sample_id, repr_id)
+        if representation.metadata.type == "lineage" and RECONCILED_SUBSTRING in repr_id:
             return repr_id
     return None
 
@@ -65,12 +75,15 @@ def _find_image_repr_id(reg: Registry, sample_id: str) -> str | None:
 
 
 class FixConflictsWidget(QWidget):
-    """Pick an embryo, load its curated-by-Alyssa lineage, and show its precomputed conflicts/drift.
+    """Pick an embryo, load its Reconciled Annotations lineage, and show its precomputed conflicts/drift.
 
-    Only ever loads the curated-by-Alyssa lineage as the active (editable)
-    tracks -- no images, no other lineages as view-only overlays. The
-    comparison table and drifted-position Points layer are both read from
-    CSVs next to the curated lineage's own CSV (see module docstring).
+    Only ever loads the Reconciled Annotations lineage (see
+    `scripts/create_reconciled_annotations.py`) as the active (editable)
+    tracks -- no images beyond the embryo's own, no other lineages as
+    view-only overlays. The comparison table and drifted-position Points
+    layer are both read from CSVs next to the curated-by-Alyssa lineage's
+    CSV (see module docstring). "Save" overwrites the Reconciled
+    Annotations CSV with the current edited tracks.
     """
 
     def __init__(self, viewer: napari.Viewer, reg: Registry) -> None:
@@ -78,6 +91,7 @@ class FixConflictsWidget(QWidget):
         self.viewer = viewer
         self.registry = reg
         self.sulston_lineage = get_sulston(reg)
+        self.reconciled_repres = None
 
         self._samples_by_name = {
             sample.name: sample
@@ -85,7 +99,7 @@ class FixConflictsWidget(QWidget):
                 (reg.load_sample(sample_id) for sample_id in reg.list_samples()),
                 key=lambda sample: sample.name,
             )
-            if _find_curated_repr_id(reg, sample.id) is not None
+            if _find_reconciled_repr_id(reg, sample.id) is not None
         }
 
         self._combo = QComboBox()
@@ -93,6 +107,10 @@ class FixConflictsWidget(QWidget):
 
         load_button = QPushButton("Load")
         load_button.clicked.connect(self._on_load_clicked)
+
+        self._save_button = QPushButton("Save")
+        self._save_button.setEnabled(False)
+        self._save_button.clicked.connect(self._on_save_clicked)
 
         self.cell_navigator_widget = CellNavigatorWidget(
             TracksViewer.get_instance(viewer), {}, lambda _track_id: []
@@ -112,28 +130,39 @@ class FixConflictsWidget(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(self._combo)
         layout.addWidget(load_button)
+        layout.addWidget(self._save_button)
         layout.addWidget(self.cell_navigator_widget)
         layout.addWidget(self.edit_cell_names_widget)
         self.setLayout(layout)
 
     def _on_load_clicked(self) -> None:
         sample = self._samples_by_name[self._combo.currentText()]
-        curated_repr_id = _find_curated_repr_id(self.registry, sample.id)
-        curated_repres = self.registry.load_representation(sample.id, curated_repr_id)
+        reconciled_repr_id = _find_reconciled_repr_id(self.registry, sample.id)
+        self.reconciled_repres = self.registry.load_representation(sample.id, reconciled_repr_id)
 
-        df = load_lineage(curated_repres, self.sulston_lineage, self.registry.path)
+        df = load_lineage(self.reconciled_repres, self.sulston_lineage, self.registry.path)
         self.tracks = tracks_from_lineage_df(df)
 
         tv = TracksViewer.get_instance(self.viewer)
         self._register_name_annotator(self.tracks)
-        tv.update_tracks(self.tracks, curated_repres.name)
+        tv.update_tracks(self.tracks, self.reconciled_repres.name)
         self._set_points_size(tv, _ACTIVE_POINTS_SIZE)
+        self._save_button.setEnabled(True)
 
         self._load_image(sample.id)
 
+        curated_repr_id = _find_curated_repr_id(self.registry, sample.id)
+        curated_repres = self.registry.load_representation(sample.id, curated_repr_id)
         csv_dir = to_local_path(curated_repres.path, self.registry.path).parent
         self._load_comparison(tv, csv_dir / f"lineage_conflicts_{sample.id}.csv")
         self._load_drift_layer(csv_dir / f"location_drift_{sample.id}.csv")
+
+    def _on_save_clicked(self) -> None:
+        if self.tracks is None or self.reconciled_repres is None:
+            return
+        out_path = to_local_path(self.reconciled_repres.path, self.registry.path)
+        save_tracks_to_csv(self.tracks, out_path)
+        print(f"saved {self.reconciled_repres.name} to {out_path}")
 
     def _load_image(self, sample_id: str) -> None:
         if self.image_layer is not None and self.image_layer in self.viewer.layers:

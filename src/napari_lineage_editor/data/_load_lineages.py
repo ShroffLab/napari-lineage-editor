@@ -175,6 +175,43 @@ def nx_from_tracks(tracks: Tracks) -> nx.DiGraph:
     return graph
 
 
+def save_tracks_to_csv(tracks: Tracks, path: Path) -> None:
+    """Write `tracks`' solution graph to `path`, in the same shape `_load_lineage` reads back.
+
+    Columns: `time`, `cell_name`, `x`, `y`, `z`, `cell_id`, `parent_id` --
+    mirrors `nx_from_tracks`'s read of `graph_solution.node_attrs()`/
+    `edge_attrs()`, but writes a CSV instead of a `networkx.DiGraph`. Nodes
+    with no incoming edge (the lineage's start, or a division's first
+    daughter if edges aren't tracked that way) get `parent_id == -1`,
+    matching `_load_lineage`'s own convention.
+
+    Args:
+        tracks: The `Tracks` whose `graph_solution` to save.
+        path: Destination CSV path, overwritten if it already exists.
+    """
+    node_attrs = tracks.graph_solution.node_attrs()
+    edge_attrs = tracks.graph_solution.edge_attrs()
+
+    parent_by_node = dict(
+        zip(edge_attrs["target_id"].to_list(), edge_attrs["source_id"].to_list(), strict=True)
+    )
+
+    node_ids = node_attrs["node_id"].to_list()
+    positions = node_attrs["pos"].to_list()
+    out = pd.DataFrame(
+        {
+            "time": node_attrs["t"].to_list(),
+            "cell_name": node_attrs["name"].to_list(),
+            "z": [pos[0] for pos in positions],
+            "y": [pos[1] for pos in positions],
+            "x": [pos[2] for pos in positions],
+            "cell_id": node_ids,
+            "parent_id": [parent_by_node.get(node_id, -1) for node_id in node_ids],
+        }
+    )
+    out.to_csv(path, index=False)
+
+
 def tracks_from_lineage_df(lineage: pd.DataFrame) -> Tracks:
     """Build a `funtracks` `Tracks` object from a lineage dataframe.
 

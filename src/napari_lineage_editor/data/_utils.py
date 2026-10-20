@@ -38,7 +38,10 @@ def to_relative_path(
     registry_root: Path,
 ) -> str:
     rel_path = path.relative_to(registry_root, walk_up=True)
-    return str(Path(REGISTRY_PATH_PREFIX) / rel_path)
+    # Not `Path(REGISTRY_PATH_PREFIX) / rel_path`: pathlib collapses the
+    # "//" in "registry://" during normalization, producing "registry:/..."
+    # instead of "registry://...".
+    return REGISTRY_PATH_PREFIX + str(rel_path)
 
 
 def to_local_path(uri: str, registry_root: Path) -> Path:
