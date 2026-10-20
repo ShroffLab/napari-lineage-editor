@@ -16,7 +16,12 @@ from qtpy.QtWidgets import (
 
 import napari_lineage_editor as nle
 from napari_lineage_editor.data import nx_from_tracks, registry, tracks_from_lineage_df
-from napari_lineage_editor.widgets import ComparisonWidget, CropWidget, EmbryoLoaderWidget
+from napari_lineage_editor.widgets import (
+    CellNavigatorWidget,
+    ComparisonWidget,
+    CropWidget,
+    EmbryoLoaderWidget,
+)
 
 REGISTRY_PATH = Path("/Users/malinmayorc/projects/celegans-cell-id/wormguides-data/registry")
 IMAGE_METADATA_TYPE = "image"
@@ -27,6 +32,9 @@ LINEAGE_METADATA_TYPE = "lineage"
 # the share and make everything slower, not faster.
 _SMB_READ_THREADS = 4
 
+_ACTIVE_POINTS_SIZE = 5
+_VIEW_ONLY_POINTS_SIZE = 2
+
 
 class LineageEditorWidget(QWidget):
     def __init__(self, viewer: napari.Viewer, registry: Registry) -> None:
@@ -35,6 +43,7 @@ class LineageEditorWidget(QWidget):
         # widgets
         self.comparison_dock: object | None = None
         self.data_widget = EmbryoLoaderWidget(registry)
+        self.cell_navigator_widget = CellNavigatorWidget(TracksViewer.get_instance(viewer))
         self.crop_dock: object | None = None
 
         # book-keeping of data
@@ -51,6 +60,7 @@ class LineageEditorWidget(QWidget):
         # layout
         layout = QVBoxLayout()
         layout.addWidget(self.data_widget)
+        layout.addWidget(self.cell_navigator_widget)
         self.setLayout(layout)
 
         # signals
@@ -111,6 +121,7 @@ class LineageEditorWidget(QWidget):
                 # flatten to one color so multiple overlaid lineages don't
                 # compete visually with the editable lineage's own coloring.
                 overlay_tracks_viewer.set_color_feature(None)
+                self._set_points_size(overlay_tracks_viewer, _VIEW_ONLY_POINTS_SIZE)
                 self._open_tree_view(name, overlay_tracks_viewer)
 
         self.refresh_comparison_widget()
@@ -200,20 +211,32 @@ class LineageEditorWidget(QWidget):
         tracks_viewer.update_tracks(new_tracks, self.track_names[index])
 
         tracks_viewer.set_color_feature(color_feature_key)
-        if not view_only:
-            points_layer = tracks_viewer.tracking_layers.points_layer
-            if points_layer is not None:
-                points_layer.size = 3
+        points_size = _VIEW_ONLY_POINTS_SIZE if view_only else _ACTIVE_POINTS_SIZE
+        self._set_points_size(tracks_viewer, points_size)
 
         for layer, visible in visible_by_layer.items():
             if layer in self.viewer.layers:
                 layer.visible = visible
 
+    def _set_points_size(self, tracks_viewer: TracksViewer, size: int) -> None:
+        """Set the points layer's default point size the same way its layer-controls slider does.
+
+        `TrackPoints` (napari-track-edit's `Points` subclass) tracks its own
+        `default_size`, updated via `set_point_size` -- but only ever called
+        from the layer controls' "point size" slider's `current_size` event.
+        Setting `.size` directly bypasses `default_size` entirely, so the
+        slider never reflects the change and anything that re-derives sizes
+        from `default_size` later (e.g. adding a new point) reverts to the
+        stale value. Setting `current_size` instead goes through the same
+        event `TrackPoints` already listens to, keeping the slider in sync.
+        """
+        points_layer = tracks_viewer.tracking_layers.points_layer
+        if points_layer is not None:
+            points_layer.current_size = size
+
     def configure(self):
         tv = TracksViewer.get_instance(self.viewer)
-        points_layer = tv.tracking_layers.points_layer
-        if points_layer is not None:
-            points_layer.size = 3
+        self._set_points_size(tv, _ACTIVE_POINTS_SIZE)
 
         for image in self.image_layers:
             image.reset_contrast_limits()
