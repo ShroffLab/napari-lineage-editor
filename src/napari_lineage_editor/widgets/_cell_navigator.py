@@ -14,25 +14,39 @@ from qtpy.QtWidgets import (
 )
 
 if TYPE_CHECKING:
-    from funtracks.data_model.tracks import Tracks
+    from collections.abc import Callable
+
     from napari_track_edit.data_views import TracksViewer
 
 
 class CellNavigatorWidget(QWidget):
     """Type a cell name, jump to the start or end of its tracklet in the active lineage.
 
-    Autocompletes against whichever lineage is currently the active
-    (editable) tracks in `tracks_viewer`, refreshed automatically whenever
-    the active tracks change.
+    Autocompletes against `track_id_by_name`, refreshed automatically
+    whenever the active tracks change.
     """
 
-    def __init__(self, tracks_viewer: TracksViewer) -> None:
+    def __init__(
+        self,
+        tracks_viewer: TracksViewer,
+        track_id_by_name: dict[str, int],
+        get_valid_names: Callable[[int], list[str]],
+    ) -> None:
+        """
+        Args:
+            tracks_viewer: The active lineage's `TracksViewer`.
+            track_id_by_name: `NameAnnotator.track_id_by_name` for the active
+                tracks -- held by reference and mutated in place by the
+                annotator, so this widget always sees the current mapping
+                without needing to be told when it changes.
+            get_valid_names: `NameAnnotator.get_valid_names`, bound to the
+                active tracks' annotator -- used to suggest names for the
+                selected node's tracklet based on its current graph-parent.
+        """
         super().__init__()
         self._tracks_viewer = tracks_viewer
-        # Maps id(tracks) -> {cell name: tracklet id}, built once per active
-        # lineage (name maps 1:1 to tracklet) so a lookup doesn't rescan
-        # every node on every click.
-        self._track_ids_by_name_by_tracks: dict[int, dict[str, int]] = {}
+        self._track_id_by_name = track_id_by_name
+        self._get_valid_names = get_valid_names
 
         self._name_edit = QLineEdit()
         self._name_edit.setPlaceholderText("Cell name, e.g. ABa")
@@ -50,54 +64,56 @@ class CellNavigatorWidget(QWidget):
         name_nav_buttons.addWidget(go_to_end_button)
 
         self._selected_names_label = QLabel()
+        self._valid_names_label = QLabel()
 
         layout = QVBoxLayout()
         layout.addWidget(self._name_edit)
         layout.addLayout(name_nav_buttons)
         layout.addWidget(self._selected_names_label)
+        layout.addWidget(self._valid_names_label)
         self.setLayout(layout)
 
         self._tracks_viewer.tracks_updated.connect(self._on_tracks_updated)
         self._tracks_viewer.node_selection_updated.connect(self._on_selection_updated)
 
+    def set_name_lookups(
+        self, track_id_by_name: dict[str, int], get_valid_names: Callable[[int], list[str]]
+    ) -> None:
+        """Point this widget at a new `NameAnnotator`'s lookups (e.g. after a crop)."""
+        self._track_id_by_name = track_id_by_name
+        self._get_valid_names = get_valid_names
+
     def _on_tracks_updated(self, _refresh_view: bool | None) -> None:
-        tracks = self._tracks_viewer.tracks
-        if tracks is not None:
-            self._refresh_name_cache(tracks)
+        self._name_completer.model().setStringList(sorted(self._track_id_by_name))
         self._on_selection_updated()
 
     def _on_selection_updated(self, *_args: object) -> None:
-        """Show the name(s) of the currently selected node(s) in the active lineage."""
+        """Show the selected node(s)' name(s), and valid-name suggestions for a single selection."""
         tracks = self._tracks_viewer.tracks
         selected_nodes = list(self._tracks_viewer.selected_nodes)
         if tracks is None or not selected_nodes:
             self._selected_names_label.setText("Selected: (none)")
+            self._valid_names_label.setText("")
             return
 
         names = tracks.get_nodes_attr(selected_nodes, "name")
         self._selected_names_label.setText("Selected: " + ", ".join(names))
 
-    def _refresh_name_cache(self, tracks: Tracks) -> None:
-        """Rebuild the `{name: tracklet id}` cache `_go_to_named_cell` uses.
-
-        Name maps 1:1 to tracklet. Also refreshes the cell-name text field's
-        autocomplete suggestions to match.
-        """
-        node_ids = list(tracks.graph_solution.node_ids())
-        names = tracks.get_nodes_attr(node_ids, "name")
-        track_ids_by_name = {
-            name: tracks.get_track_id(node_id)
-            for node_id, name in zip(node_ids, names, strict=True)
-        }
-        self._track_ids_by_name_by_tracks[id(tracks)] = track_ids_by_name
-        self._name_completer.model().setStringList(sorted(track_ids_by_name))
+        if len(selected_nodes) == 1:
+            track_id = tracks.get_track_id(selected_nodes[0])
+            valid_names = self._get_valid_names(track_id)
+            self._valid_names_label.setText(
+                "Valid names: " + (", ".join(valid_names) if valid_names else "(none)")
+            )
+        else:
+            self._valid_names_label.setText("")
 
     def _go_to_named_cell(self, *, end: bool) -> None:
         """Select the start (or end) node of the named cell's tracklet in the active lineage.
 
         Searches whichever lineage is currently displayed
-        (`tracks_viewer.tracks`), using the `{name: track_id}` cache built
-        when that lineage was loaded (name maps 1:1 to tracklet).
+        (`tracks_viewer.tracks`), using `track_id_by_name` (name maps 1:1 to
+        tracklet).
 
         Args:
             end: If `True`, select the tracklet's last (max time) node;
@@ -106,12 +122,9 @@ class CellNavigatorWidget(QWidget):
         tracks = self._tracks_viewer.tracks
         if tracks is None:
             return
-        track_ids_by_name = self._track_ids_by_name_by_tracks.get(id(tracks))
-        if track_ids_by_name is None:
-            return
 
         name = self._name_edit.text().strip()
-        track_id = track_ids_by_name.get(name)
+        track_id = self._track_id_by_name.get(name)
         if track_id is None:
             return
 

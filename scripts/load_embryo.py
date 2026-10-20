@@ -15,11 +15,13 @@ from qtpy.QtWidgets import (
 )
 
 import napari_lineage_editor as nle
+from napari_lineage_editor import NameAnnotator
 from napari_lineage_editor.data import nx_from_tracks, registry, tracks_from_lineage_df
 from napari_lineage_editor.widgets import (
     CellNavigatorWidget,
     ComparisonWidget,
     CropWidget,
+    EditCellNamesWidget,
     EmbryoLoaderWidget,
 )
 
@@ -43,8 +45,14 @@ class LineageEditorWidget(QWidget):
         # widgets
         self.comparison_dock: object | None = None
         self.data_widget = EmbryoLoaderWidget(registry)
-        self.cell_navigator_widget = CellNavigatorWidget(TracksViewer.get_instance(viewer))
+        self.cell_navigator_widget = CellNavigatorWidget(
+            TracksViewer.get_instance(viewer), {}, lambda _track_id: []
+        )
+        self.edit_cell_names_widget = EditCellNamesWidget(
+            TracksViewer.get_instance(viewer), {}, set()
+        )
         self.crop_dock: object | None = None
+        self.show_view_only_trees = False
 
         # book-keeping of data
         self.image_layers = []
@@ -61,6 +69,7 @@ class LineageEditorWidget(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(self.data_widget)
         layout.addWidget(self.cell_navigator_widget)
+        layout.addWidget(self.edit_cell_names_widget)
         self.setLayout(layout)
 
         # signals
@@ -109,6 +118,7 @@ class LineageEditorWidget(QWidget):
         tv = TracksViewer.get_instance(self.viewer)
 
         if self.active_tracks is not None:
+            self._register_name_annotator(self.active_tracks)
             tv.update_tracks(self.active_tracks, self.active_tracks_name)
             self.tracks_viewers.append(tv)
 
@@ -122,7 +132,8 @@ class LineageEditorWidget(QWidget):
                 # compete visually with the editable lineage's own coloring.
                 overlay_tracks_viewer.set_color_feature(None)
                 self._set_points_size(overlay_tracks_viewer, _VIEW_ONLY_POINTS_SIZE)
-                self._open_tree_view(name, overlay_tracks_viewer)
+                if self.show_view_only_trees:
+                    self._open_tree_view(name, overlay_tracks_viewer)
 
         self.refresh_comparison_widget()
         self.refresh_crop_widget()
@@ -182,9 +193,31 @@ class LineageEditorWidget(QWidget):
         self.crop_dock = self.viewer.window.add_dock_widget(crop_widget, name="Crop", area="right")
 
     def update_tracks(self, index: int, new_tracks: Tracks):
+        if index == 0:
+            self._register_name_annotator(new_tracks)
         self._update_tracks_viewer(index, new_tracks, view_only=index != 0)
         self.tracks[index] = new_tracks
         self.refresh_comparison_widget()
+
+    def _register_name_annotator(self, tracks: Tracks) -> None:
+        """Register a `NameAnnotator` on the editable/active tracks, so renames keep working.
+
+        Only the active tracks are ever renamed (see `EditCellNamesWidget`),
+        so view-only overlays don't need one. Each crop produces a fresh
+        `Tracks` instance (see `CropWidget.crop_tracks`) with its own fresh
+        `NameAnnotator`, so the navigator/edit widgets are re-pointed at its
+        lookups every time, not just on first load.
+        """
+        name_annotator = NameAnnotator(tracks, self.data_widget.sulston_lineage)
+        tracks.annotators.append(name_annotator)
+        tracks.enable_features([name_annotator.name_key])
+
+        self.cell_navigator_widget.set_name_lookups(
+            name_annotator.track_id_by_name, name_annotator.get_valid_names
+        )
+        self.edit_cell_names_widget.set_name_lookups(
+            name_annotator.track_id_by_name, name_annotator.invalid_track_ids
+        )
 
     def _update_tracks_viewer(self, index: int, new_tracks: Tracks, *, view_only: bool) -> None:
         """Replace a `TracksViewer`'s tracks, undoing side effects that assume it's the only one.
