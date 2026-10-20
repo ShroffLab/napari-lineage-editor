@@ -11,6 +11,7 @@ just to see where they disagreed.
 
 from __future__ import annotations
 
+import dask
 import napari
 import pandas as pd
 from dataset_registry import Registry
@@ -36,6 +37,11 @@ RECONCILED_SUBSTRING = "reconciled-annotations"
 
 _ACTIVE_POINTS_SIZE = 5
 _DRIFT_POINTS_SIZE = 8
+
+# SMB round-trips dominate read latency here, not CPU decode time, so a
+# handful of concurrent reads in flight helps -- but too many threads hammer
+# the share and make everything slower, not faster (see load_embryo.py).
+_SMB_READ_THREADS = 4
 
 
 def _find_curated_repr_id(reg: Registry, sample_id: str) -> str | None:
@@ -113,7 +119,7 @@ class FixConflictsWidget(QWidget):
         self._save_button.clicked.connect(self._on_save_clicked)
 
         self.cell_navigator_widget = CellNavigatorWidget(
-            TracksViewer.get_instance(viewer), {}, lambda _track_id: []
+            TracksViewer.get_instance(viewer), {}, lambda _track_id: [], lambda _name: None
         )
         self.edit_cell_names_widget = EditCellNamesWidget(
             TracksViewer.get_instance(viewer), {}, set()
@@ -201,7 +207,9 @@ class FixConflictsWidget(QWidget):
         tracks.enable_features([name_annotator.name_key])
 
         self.cell_navigator_widget.set_name_lookups(
-            name_annotator.track_id_by_name, name_annotator.get_valid_names
+            name_annotator.track_id_by_name,
+            name_annotator.get_valid_names,
+            name_annotator.get_sulston_sibling_name,
         )
         self.edit_cell_names_widget.set_name_lookups(
             name_annotator.track_id_by_name, name_annotator.invalid_track_ids
@@ -283,6 +291,8 @@ class FixConflictsWidget(QWidget):
 
 
 def main() -> None:
+    dask.config.set(scheduler="threads", num_workers=_SMB_READ_THREADS)
+
     reg = registry(REGISTRY_PATH)
 
     viewer = napari.Viewer(title="Wormguides conflict fixer")

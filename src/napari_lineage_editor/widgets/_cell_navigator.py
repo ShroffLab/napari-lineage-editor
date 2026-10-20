@@ -31,6 +31,7 @@ class CellNavigatorWidget(QWidget):
         tracks_viewer: TracksViewer,
         track_id_by_name: dict[str, int],
         get_valid_names: Callable[[int], list[str]],
+        get_sulston_sibling_name: Callable[[str], str | None],
     ) -> None:
         """
         Args:
@@ -42,11 +43,15 @@ class CellNavigatorWidget(QWidget):
             get_valid_names: `NameAnnotator.get_valid_names`, bound to the
                 active tracks' annotator -- used to suggest names for the
                 selected node's tracklet based on its current graph-parent.
+            get_sulston_sibling_name: `NameAnnotator.get_sulston_sibling_name`,
+                used by "Select Siblings" to find the other Sulston child of
+                the selected node's parent.
         """
         super().__init__()
         self._tracks_viewer = tracks_viewer
         self._track_id_by_name = track_id_by_name
         self._get_valid_names = get_valid_names
+        self._get_sulston_sibling_name = get_sulston_sibling_name
 
         self._name_edit = QLineEdit()
         self._name_edit.setPlaceholderText("Cell name, e.g. ABa")
@@ -63,12 +68,16 @@ class CellNavigatorWidget(QWidget):
         name_nav_buttons.addWidget(go_to_start_button)
         name_nav_buttons.addWidget(go_to_end_button)
 
+        select_siblings_button = QPushButton("Select Siblings")
+        select_siblings_button.clicked.connect(self._on_select_siblings_clicked)
+
         self._selected_names_label = QLabel()
         self._valid_names_label = QLabel()
 
         layout = QVBoxLayout()
         layout.addWidget(self._name_edit)
         layout.addLayout(name_nav_buttons)
+        layout.addWidget(select_siblings_button)
         layout.addWidget(self._selected_names_label)
         layout.addWidget(self._valid_names_label)
         self.setLayout(layout)
@@ -77,11 +86,15 @@ class CellNavigatorWidget(QWidget):
         self._tracks_viewer.node_selection_updated.connect(self._on_selection_updated)
 
     def set_name_lookups(
-        self, track_id_by_name: dict[str, int], get_valid_names: Callable[[int], list[str]]
+        self,
+        track_id_by_name: dict[str, int],
+        get_valid_names: Callable[[int], list[str]],
+        get_sulston_sibling_name: Callable[[str], str | None],
     ) -> None:
         """Point this widget at a new `NameAnnotator`'s lookups (e.g. after a crop)."""
         self._track_id_by_name = track_id_by_name
         self._get_valid_names = get_valid_names
+        self._get_sulston_sibling_name = get_sulston_sibling_name
 
     def _on_tracks_updated(self, _refresh_view: bool | None) -> None:
         self._name_completer.model().setStringList(sorted(self._track_id_by_name))
@@ -105,8 +118,45 @@ class CellNavigatorWidget(QWidget):
             self._valid_names_label.setText(
                 "Valid names: " + (", ".join(valid_names) if valid_names else "(none)")
             )
+            self._name_edit.setText(names[0] or "")
         else:
             self._valid_names_label.setText("")
+
+    def _on_select_siblings_clicked(self) -> None:
+        """Select the current node plus its Sulston sibling's node at the same timepoint.
+
+        Only acts on a single current selection -- there's no well-defined
+        "sibling" for a multi-node selection. Does nothing if the selected
+        cell has no name, no Sulston sibling, or that sibling's tracklet
+        doesn't have a node at this exact timepoint (e.g. it hasn't started
+        yet, or has already ended).
+        """
+        tracks = self._tracks_viewer.tracks
+        selected_nodes = list(self._tracks_viewer.selected_nodes)
+        if tracks is None or len(selected_nodes) != 1:
+            return
+
+        node = selected_nodes[0]
+        name = tracks.get_node_attr(node, "name")
+        if name is None:
+            return
+
+        sibling_name = self._get_sulston_sibling_name(name)
+        if sibling_name is None:
+            return
+
+        sibling_track_id = self._track_id_by_name.get(sibling_name)
+        if sibling_track_id is None:
+            return
+
+        time = tracks.get_time(node)
+        sibling_node = next(
+            (n for t, n in tracks.get_track_node_times(sibling_track_id) if t == time), None
+        )
+        if sibling_node is None:
+            return
+
+        self._tracks_viewer.selected_nodes.add(sibling_node, append=True)
 
     def _go_to_named_cell(self, *, end: bool) -> None:
         """Select the start (or end) node of the named cell's tracklet in the active lineage.

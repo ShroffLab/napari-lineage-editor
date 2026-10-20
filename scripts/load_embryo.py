@@ -44,7 +44,7 @@ class LineageEditorWidget(QWidget):
         self.comparison_dock: object | None = None
         self.data_widget = EmbryoLoaderWidget(registry)
         self.cell_navigator_widget = CellNavigatorWidget(
-            TracksViewer.get_instance(viewer), {}, lambda _track_id: []
+            TracksViewer.get_instance(viewer), {}, lambda _track_id: [], lambda _name: None
         )
         self.edit_cell_names_widget = EditCellNamesWidget(
             TracksViewer.get_instance(viewer), {}, set()
@@ -212,7 +212,9 @@ class LineageEditorWidget(QWidget):
         tracks.enable_features([name_annotator.name_key])
 
         self.cell_navigator_widget.set_name_lookups(
-            name_annotator.track_id_by_name, name_annotator.get_valid_names
+            name_annotator.track_id_by_name,
+            name_annotator.get_valid_names,
+            name_annotator.get_sulston_sibling_name,
         )
         self.edit_cell_names_widget.set_name_lookups(
             name_annotator.track_id_by_name, name_annotator.invalid_track_ids

@@ -128,6 +128,23 @@ class NameAnnotator(GraphAnnotator):
         """The Sulston lineage's child names for `name` (0, 1, or 2 of them)."""
         return list(self.sulston_lineage.successors(name))
 
+    def get_sulston_sibling_name(self, name: str) -> str | None:
+        """The Sulston lineage's other child of `name`'s parent, or `None` if there isn't one.
+
+        Purely name-based (no tracklet lookup): `name`'s own tracklet
+        doesn't need to exist yet for this to answer "what name would its
+        sibling have".
+        """
+        parent_name = self.get_sulston_parent(name)
+        if parent_name is None:
+            return None
+        siblings = [
+            child_name
+            for child_name in self.get_sulston_children(parent_name)
+            if child_name != name
+        ]
+        return siblings[0] if siblings else None
+
     def get_parent_track_id(self, track_id: int) -> int | None:
         """The tracklet id immediately upstream of `track_id` in the graph, if any."""
         _time, first_node = self.tracks.get_track_node_times(track_id)[0]
@@ -147,18 +164,17 @@ class NameAnnotator(GraphAnnotator):
 
         A tracklet with no graph-parent (the lineage's start) has no
         suggestion -- any root name is as good as another without more
-        context. Otherwise, suggestions are Sulston's children of the
-        parent's *current* name, minus whichever of those a sibling
-        tracklet already holds (so a suggestion never proposes a name
-        that's already taken elsewhere).
+        context. Otherwise, suggestions are all of Sulston's children of the
+        parent's *current* name -- both daughters, even if one is already
+        held by a sibling tracklet elsewhere, since the user may want to
+        swap rather than only fill in whichever slot happens to be empty.
 
         Args:
             track_id: The tracklet to suggest names for.
 
         Returns:
-            Every currently-untaken Sulston child name of the parent
-            tracklet's name, or `[]` if the parent has no name yet or
-            `track_id` has no graph-parent.
+            Every Sulston child name of the parent tracklet's name, or `[]`
+            if the parent has no name yet or `track_id` has no graph-parent.
         """
         parent_track_id = self.get_parent_track_id(track_id)
         if parent_track_id is None:
@@ -169,14 +185,7 @@ class NameAnnotator(GraphAnnotator):
         if parent_name is None:
             return []
 
-        own_name = self.tracks.get_node_attr(
-            self.tracks.get_track_node_times(track_id)[0][1], self.name_key
-        )
-        return [
-            child_name
-            for child_name in self.get_sulston_children(parent_name)
-            if child_name == own_name or child_name not in self.track_id_by_name
-        ]
+        return self.get_sulston_children(parent_name)
 
     def compute(self, feature_keys: list[str] | None = None) -> None:
         """Rebuild `track_id_by_name` from the current `name` attribute values.
