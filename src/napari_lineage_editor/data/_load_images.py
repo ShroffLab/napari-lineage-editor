@@ -11,7 +11,7 @@ from dask import delayed
 from ._utils import to_local_path
 
 if TYPE_CHECKING:
-    from dataset_registry import Registry
+    from dataset_registry import Representation
 
     from napari_lineage_editor.data import CelegansImageRepMetadata
 
@@ -32,9 +32,8 @@ def _lazy_frame(path: Path, shape: tuple[int, ...], dtype: object) -> da.Array:
     return da.from_delayed(delayed(_read_frame_cached)(path), shape=shape, dtype=dtype)
 
 
-def load_images(registry: Registry, sample_id: str, repr_id: str) -> da.Array:
-    repres = registry.load_representation(sample_id, repr_id)
-    path = to_local_path(repres.path, registry_root=registry.path)
+def load_images(repres: Representation, registry_root: Path) -> da.Array:
+    path = to_local_path(repres.path, registry_root=registry_root)
     return _load_images(path, repres.metadata)
 
 

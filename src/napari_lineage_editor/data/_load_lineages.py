@@ -6,12 +6,12 @@ import networkx as nx
 import pandas as pd
 from funtracks.import_export import tracks_from_df
 
-from ._utils import get_sulston, to_local_path
+from ._utils import to_local_path
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from dataset_registry import Registry
+    from dataset_registry import Representation
     from funtracks.data_model.tracks import Tracks
 
 
@@ -67,13 +67,8 @@ def _resolve_division_edges(lineage: pd.DataFrame, sulston_lineage: nx.DiGraph) 
     return lineage
 
 
-def load_lineage(
-    registry: Registry, sample_id: str, repr_id: str, sulston: nx.DiGraph | None
-) -> pd.DataFrame:
-    if sulston is None:
-        sulston = get_sulston(registry)
-    repres = registry.load_representation(sample_id, repr_id)
-    path = to_local_path(repres.path, registry_root=registry.path)
+def load_lineage(repres: Representation, sulston: nx.DiGraph, registry_root: Path) -> pd.DataFrame:
+    path = to_local_path(repres.path, registry_root=registry_root)
     return _load_lineage(path, sulston_lineage=sulston, time_offset=repres.metadata.time_offset)
 
 
