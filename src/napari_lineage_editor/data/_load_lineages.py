@@ -103,7 +103,13 @@ def _load_lineage(
     """
     df = pd.read_csv(path)
     if "cell_id" not in df.columns:
-        df["cell_id"] = df.index
+        # Start at 1, not 0: `tracks_from_df` relabels every node id by +1
+        # whenever it finds a 0 (0 is reserved for the segmentation
+        # background label), so starting at 0 here means the actual loaded
+        # node ids depend on whether this exact id-assignment ran, making
+        # ids computed at different times (e.g. an id saved to a CSV by one
+        # script run) not comparable to ids from a later load.
+        df["cell_id"] = df.index + 1
     if "parent_id" not in df.columns:
         time_name_pairs = list(zip(df["time"], df["cell_name"], strict=True))
         id_by_time_name = dict(zip(time_name_pairs, df["cell_id"], strict=True))

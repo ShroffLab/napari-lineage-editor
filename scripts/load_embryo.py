@@ -170,7 +170,8 @@ class LineageEditorWidget(QWidget):
         graphs = [nx_from_tracks(tracks) for tracks in self.tracks]
         dist_threshold = 10
         matched_df = nle.matches_to_df(names, graphs, nle.match_nodes(graphs, dist_threshold))
-        comparison_widget = ComparisonWidget(active_tracks_viewer, matched_df)
+        conflicts = nle.get_conflicts(matched_df)
+        comparison_widget = ComparisonWidget(active_tracks_viewer, conflicts)
         self.comparison_dock = self.viewer.window.add_dock_widget(
             comparison_widget, name="Comparison", area="right"
         )

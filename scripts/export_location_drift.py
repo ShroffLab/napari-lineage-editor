@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from napari_lineage_editor.data import get_sulston, registry
 from napari_lineage_editor.data._load_lineages import load_lineage
+from napari_lineage_editor.data._utils import to_local_path
 
 REGISTRY_PATH = "/Users/malinmayorc/projects/celegans-cell-id/wormguides-data/registry"
-OUTPUT_DIR = Path(__file__).parent.parent / "scratch"
 
 CURATED_SUBSTRING = "curated-by-alyssa"
 ZENODO_SUBSTRING = "zenodo"
@@ -127,8 +126,8 @@ def main() -> None:
             print(f"{sample.name} ({sample_id}): no unexplained drift, skipped")
             continue
 
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        output_path = OUTPUT_DIR / f"location_drift_{sample_id}.csv"
+        output_dir = to_local_path(curated_repres.path, reg.path).parent
+        output_path = output_dir / f"location_drift_{sample_id}.csv"
         drift_df.to_csv(output_path, index=False)
         print(f"{sample.name} ({sample_id}): wrote {len(drift_df)} rows to {output_path}")
 

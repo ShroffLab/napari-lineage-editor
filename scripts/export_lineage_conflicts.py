@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 from napari_lineage_editor import get_conflicts, match_nodes, matches_to_df
 from napari_lineage_editor.data import get_sulston, load_lineage, nx_from_lineage_df, registry
+from napari_lineage_editor.data._utils import to_local_path
 
 REGISTRY_PATH = "/Users/malinmayorc/projects/celegans-cell-id/wormguides-data/registry"
-OUTPUT_DIR = Path(__file__).parent.parent / "scratch"
+CURATED_SUBSTRING = "curated-by-alyssa"
 
 DIST_THRESHOLD = 10
 
@@ -69,8 +69,12 @@ def main() -> None:
             print(f"{sample.name} ({sample_id}): no conflicts, skipped")
             continue
 
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        output_path = OUTPUT_DIR / f"lineage_conflicts_{sample_id}.csv"
+        curated_repr_id = next(
+            (repr_id for repr_id in repr_ids if CURATED_SUBSTRING in repr_id), repr_ids[0]
+        )
+        curated_repres = reg.load_representation(sample_id, curated_repr_id)
+        output_dir = to_local_path(curated_repres.path, reg.path).parent
+        output_path = output_dir / f"lineage_conflicts_{sample_id}.csv"
         conflicts.to_csv(output_path, index=False)
         print(f"{sample.name} ({sample_id}): wrote {len(conflicts)} rows to {output_path}")
 
