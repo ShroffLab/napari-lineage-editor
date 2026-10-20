@@ -115,7 +115,7 @@ def _load_lineage(
             raise ValueError("No division links and no sulston lineage")
         else:
             df = _resolve_division_edges(df, sulston_lineage)
-        df["time"] += time_offset
+    df["time"] += time_offset
     return df
 
 
@@ -139,6 +139,33 @@ def nx_from_lineage_df(lineage: pd.DataFrame) -> nx.DiGraph:
     for row in lineage.itertuples():
         if row.parent_id != -1:
             graph.add_edge(row.parent_id, row.cell_id)
+    return graph
+
+
+def nx_from_tracks(tracks: Tracks) -> nx.DiGraph:
+    """Build a `networkx.DiGraph` from a `Tracks` object's solution graph, for `traccuracy`.
+
+    Mirrors `nx_from_lineage_df`'s node/edge shape, but reads directly off
+    `tracks.graph_solution` instead of the original CSV -- so edits made
+    since loading (e.g. cropping to a time range) are reflected.
+
+    Args:
+        tracks: The `Tracks` whose `graph_solution` to convert.
+
+    Returns:
+        One node per `graph_solution` node, keyed by node id, with `t`
+        (time), `x`, `y`, `z`, and `name` attributes. One edge per
+        `graph_solution` edge, directed from source to target.
+    """
+    node_attrs = tracks.graph_solution.node_attrs()
+    edge_attrs = tracks.graph_solution.edge_attrs()
+
+    graph = nx.DiGraph()
+    for row in node_attrs.iter_rows(named=True):
+        z, y, x = row["pos"]
+        graph.add_node(row["node_id"], t=row["t"], x=x, y=y, z=z, name=row["name"])
+    for row in edge_attrs.iter_rows(named=True):
+        graph.add_edge(row["source_id"], row["target_id"])
     return graph
 
 

@@ -16,12 +16,11 @@ from napari_lineage_editor.data import (
     get_sulston,
     load_images,
     load_lineage,
-    tracks_from_lineage_df,
 )
 
 if TYPE_CHECKING:
+    import pandas as pd
     from dataset_registry import Registry, Representation
-    from funtracks.data_model import Tracks
 
 
 SULSTON_SAMPLE_NAME = "Sulston"
@@ -92,7 +91,9 @@ class EmbryoLoaderWidget(QWidget):
             images, name=representation.name, blending="additive", translate=translate
         )
 
-    def _load_lineage_representation(self, representation: Representation) -> Tracks:
+    def _load_lineage_representation(
+        self, representation: Representation
+    ) -> tuple[pd.DataFrame, str]:
         """Load one lineage representation, either as the editable tracks or a view-only overlay.
 
         Only one lineage can be the editable tracks shown in the tree/table/
@@ -105,13 +106,12 @@ class EmbryoLoaderWidget(QWidget):
             representation: The lineage representation to load.
         """
         lineage_df = load_lineage(representation, self.sulston_lineage, self.registry.path)
-        tracks = tracks_from_lineage_df(lineage_df)
 
-        return tracks, representation.name
+        return lineage_df, representation.name
 
     def _on_load_clicked(self) -> None:
         images = []
-        tracks = []
+        track_dfs = []
         tracks_names = []
         sample = self._samples_by_name[self._combo.currentText()]
         representation_ids = self._checked_representation_ids()
@@ -123,6 +123,6 @@ class EmbryoLoaderWidget(QWidget):
                 images.append(self._load_image_representation(representation))
             elif representation.metadata.type == "lineage":
                 track, name = self._load_lineage_representation(representation)
-                tracks.append(track)
+                track_dfs.append(track)
                 tracks_names.append(name)
-        self.new_data.emit(images, tracks, tracks_names)
+        self.new_data.emit(images, track_dfs, tracks_names)
