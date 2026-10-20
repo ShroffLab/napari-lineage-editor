@@ -8,7 +8,11 @@ import dask.array as da
 import tifffile
 from dask import delayed
 
+from ._utils import to_local_path
+
 if TYPE_CHECKING:
+    from dataset_registry import Registry
+
     from napari_lineage_editor.data import CelegansImageRepMetadata
 
 # Caches whole frames (one timepoint, or one timepoint-slice for embryo 3) so
@@ -28,7 +32,13 @@ def _lazy_frame(path: Path, shape: tuple[int, ...], dtype: object) -> da.Array:
     return da.from_delayed(delayed(_read_frame_cached)(path), shape=shape, dtype=dtype)
 
 
-def load_images(image_dir: str, metadata: CelegansImageRepMetadata) -> da.Array:
+def load_images(registry: Registry, sample_id: str, repr_id: str) -> da.Array:
+    repres = registry.load_representation(sample_id, repr_id)
+    path = to_local_path(repres.path, registry_root=registry.path)
+    return _load_images(path, repres.metadata)
+
+
+def _load_images(image_dir: Path, metadata: CelegansImageRepMetadata) -> da.Array:
     """Lazily stack `image_dir`'s per-timepoint (or per-timepoint-per-slice) tiffs.
 
     No directory listing happens -- every file path is built directly from

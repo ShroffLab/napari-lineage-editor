@@ -1,27 +1,18 @@
-import geff
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import networkx as nx
 import pandas as pd
-from funtracks.data_model.tracks import Tracks
 from funtracks.import_export import tracks_from_df
 
+from ._utils import get_sulston, to_local_path
 
-def load_sulston_lineage(path: str) -> nx.DiGraph:
-    """Load a geff lineage tree: one row per tracklet (not per imaging frame).
+if TYPE_CHECKING:
+    from pathlib import Path
 
-    Unlike `load_lineages`, nodes here have no position or per-frame time --
-    each node is a whole tracklet (e.g. `"MSpaapp"`), already linked by the
-    geff file's own edges rather than inferred from name continuation.
-
-    Args:
-        path: Path to the `.geff` directory.
-
-    Returns:
-        The cell ids are the names - this is okay, for the tracklet graph, and simplifies every
-        other lookup we need (predecessors, successors, etc)
-    """
-    graph, _metadata = geff.read(path, backend="networkx")
-
-    return nx.relabel_nodes(graph, nx.get_node_attributes(graph, "name"))
+    from dataset_registry import Registry
+    from funtracks.data_model.tracks import Tracks
 
 
 def _resolve_division_edges(lineage: pd.DataFrame, sulston_lineage: nx.DiGraph) -> pd.DataFrame:
@@ -77,7 +68,17 @@ def _resolve_division_edges(lineage: pd.DataFrame, sulston_lineage: nx.DiGraph) 
 
 
 def load_lineage(
-    path: str, sulston_lineage: nx.DiGraph | None, time_offset: int = 0
+    registry: Registry, sample_id: str, repr_id: str, sulston: nx.DiGraph | None
+) -> pd.DataFrame:
+    if sulston is None:
+        sulston = get_sulston(registry)
+    repres = registry.load_representation(sample_id, repr_id)
+    path = to_local_path(repres.path, registry_root=registry.path)
+    return _load_lineage(path, sulston_lineage=sulston, time_offset=repres.metadata.time_offset)
+
+
+def _load_lineage(
+    path: Path, sulston_lineage: nx.DiGraph | None, time_offset: int = 0
 ) -> pd.DataFrame:
     """Load a name-only lineage CSV and resolve `parent_id` for every row.
 
