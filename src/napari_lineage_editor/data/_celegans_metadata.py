@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Literal
 
 from dataset_registry import Registry
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 def registry(path: Path) -> Registry:
@@ -37,6 +37,12 @@ class CelegansImageRepMetadata(BaseModel):
     end_time: int
     start_z: int | None = None
     end_z: int | None = None
+
+    @model_validator(mode="after")
+    def _check_z_range(self) -> "CelegansImageRepMetadata":
+        if (self.start_z is None) != (self.end_z is None):
+            raise ValueError("start_z and end_z must either both be set or both be None")
+        return self
 
 
 class CelegansLineageRepMetadata(BaseModel):
