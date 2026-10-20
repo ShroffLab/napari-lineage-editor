@@ -29,7 +29,12 @@ from napari_lineage_editor.data import (
     tracks_from_lineage_df,
 )
 from napari_lineage_editor.data._utils import to_local_path
-from napari_lineage_editor.widgets import CellNavigatorWidget, ComparisonWidget, EditCellNamesWidget
+from napari_lineage_editor.widgets import (
+    CellNavigatorWidget,
+    ComparisonWidget,
+    DriftNavigatorWidget,
+    EditCellNamesWidget,
+)
 
 REGISTRY_PATH = "janelia://nrs.hhmi.org/shroff/Pharynx_Project/wormguides-data/registry"
 CURATED_SUBSTRING = "curated-by-alyssa"
@@ -124,6 +129,7 @@ class FixConflictsWidget(QWidget):
         self.edit_cell_names_widget = EditCellNamesWidget(
             TracksViewer.get_instance(viewer), {}, set()
         )
+        self.drift_navigator_widget = DriftNavigatorWidget(viewer, None, self.cell_navigator_widget)
 
         self.comparison_dock: object | None = None
         self.comparison_widget: ComparisonWidget | None = None
@@ -142,6 +148,7 @@ class FixConflictsWidget(QWidget):
         layout.addWidget(self._save_button)
         layout.addWidget(self.cell_navigator_widget)
         layout.addWidget(self.edit_cell_names_widget)
+        layout.addWidget(self.drift_navigator_widget)
         self.setLayout(layout)
 
     def _on_load_clicked(self) -> None:
@@ -200,6 +207,7 @@ class FixConflictsWidget(QWidget):
             images, name=image_repres.name, blending="additive", translate=translate
         )
         self.viewer.add_layer(self.image_layer)
+        self.image_layer.reset_contrast_limits()
 
     def _register_name_annotator(self, tracks) -> None:
         name_annotator = NameAnnotator(tracks, self.sulston_lineage)
@@ -237,6 +245,7 @@ class FixConflictsWidget(QWidget):
             self.viewer.layers.remove(self.drift_layer)
             self.drift_layer = None
             self.drift_csv_path = None
+            self.drift_navigator_widget.set_drift_layer(None)
 
         if not csv_path.exists():
             return
@@ -257,6 +266,7 @@ class FixConflictsWidget(QWidget):
         )
         self.drift_csv_path = csv_path
         self.viewer.add_layer(self.drift_layer)
+        self.drift_navigator_widget.set_drift_layer(self.drift_layer)
 
     def _save_drift_layer(self, csv_path) -> None:
         """Overwrite the drift CSV with whatever points remain in `self.drift_layer`.

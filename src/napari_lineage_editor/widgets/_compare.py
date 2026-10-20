@@ -65,9 +65,7 @@ class ComparisonWidget(QWidget):
             tracks.get_time(node_id) if tracks is not None and pd.notna(node_id) else None
             for node_id in main_ids
         ]
-        order = sorted(
-            range(len(self.conflicts)), key=lambda i: (times[i] is None, times[i])
-        )
+        order = sorted(range(len(self.conflicts)), key=lambda i: (times[i] is None, times[i]))
         self.conflicts = self.conflicts.iloc[order].reset_index(drop=True)
         times = [times[i] for i in order]
 

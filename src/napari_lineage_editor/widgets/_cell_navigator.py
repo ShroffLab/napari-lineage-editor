@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from napari.utils.notifications import show_warning
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QCompleter,
@@ -64,8 +65,11 @@ class CellNavigatorWidget(QWidget):
         go_to_start_button.clicked.connect(lambda: self._go_to_named_cell(end=False))
         go_to_end_button = QPushButton("Go to end")
         go_to_end_button.clicked.connect(lambda: self._go_to_named_cell(end=True))
+        go_to_current_button = QPushButton("Go to current frame")
+        go_to_current_button.clicked.connect(self._go_to_named_cell_at_current_time)
         name_nav_buttons = QHBoxLayout()
         name_nav_buttons.addWidget(go_to_start_button)
+        name_nav_buttons.addWidget(go_to_current_button)
         name_nav_buttons.addWidget(go_to_end_button)
 
         select_siblings_button = QPushButton("Select Siblings")
@@ -95,6 +99,10 @@ class CellNavigatorWidget(QWidget):
         self._track_id_by_name = track_id_by_name
         self._get_valid_names = get_valid_names
         self._get_sulston_sibling_name = get_sulston_sibling_name
+
+    def set_name(self, name: str) -> None:
+        """Populate the name text box, e.g. so another widget's selection is easy to compare."""
+        self._name_edit.setText(name)
 
     def _on_tracks_updated(self, _refresh_view: bool | None) -> None:
         self._name_completer.model().setStringList(sorted(self._track_id_by_name))
@@ -180,4 +188,32 @@ class CellNavigatorWidget(QWidget):
 
         node_times = tracks.get_track_node_times(track_id)  # sorted by time
         _time, node = node_times[-1] if end else node_times[0]
+        self._tracks_viewer.selected_nodes.add(node)
+
+    def _go_to_named_cell_at_current_time(self) -> None:
+        """Select the named cell's node at the viewer's current timepoint, if it has one.
+
+        Unlike `_go_to_named_cell`, this doesn't move the time slider --
+        it looks up whichever node the named tracklet has at whatever
+        timepoint is already showing (e.g. after jumping there from the
+        drift navigator), so the two can be compared side by side.
+        """
+        tracks = self._tracks_viewer.tracks
+        if tracks is None:
+            return
+
+        name = self._name_edit.text().strip()
+        track_id = self._track_id_by_name.get(name)
+        if track_id is None:
+            show_warning(f"No tracklet named {name!r}")
+            return
+
+        current_time = int(self._tracks_viewer.viewer.dims.current_step[0])
+        node = next(
+            (n for t, n in tracks.get_track_node_times(track_id) if t == current_time), None
+        )
+        if node is None:
+            show_warning(f"{name!r} has no node at t={current_time}")
+            return
+
         self._tracks_viewer.selected_nodes.add(node)
