@@ -55,17 +55,39 @@ class ComparisonWidget(QWidget):
         self._main_name, *_ = self.conflicts.columns.get_level_values(0).unique()
         self.lineages = list(self.conflicts.columns.get_level_values(0).unique())
 
+        # Sorted by the main lineage's node time, not left in whatever order
+        # the conflicts dataframe arrived in, since working through
+        # conflicts in temporal order matches how a user actually scans a
+        # lineage.
+        tracks = self.active_tracks.tracks
+        main_ids = self.conflicts[(self._main_name, "id")]
+        times = [
+            tracks.get_time(node_id) if tracks is not None and pd.notna(node_id) else None
+            for node_id in main_ids
+        ]
+        order = sorted(
+            range(len(self.conflicts)), key=lambda i: (times[i] is None, times[i])
+        )
+        self.conflicts = self.conflicts.iloc[order].reset_index(drop=True)
+        times = [times[i] for i in order]
+
         # Keyed by the conflicts dataframe's own index, not by row position
         # in the table or by name: rows are removed from the table as
         # they're resolved, shifting later rows' table positions, and the
         # same main-lineage name can appear in multiple conflict rows (e.g.
         # disagreeing with different other lineages).
-        self._table = QTableWidget(len(self.conflicts), len(self.lineages) + 1)
-        self._table.setHorizontalHeaderLabels([*self.lineages, "Resolved"])
+        self._table = QTableWidget(len(self.conflicts), len(self.lineages) + 2)
+        self._table.setHorizontalHeaderLabels(["Time", *self.lineages, "Resolved"])
         self._table.cellClicked.connect(self._on_cell_clicked)
         for row_index, conflict_index in enumerate(self.conflicts.index):
             row = self.conflicts.loc[conflict_index]
-            for column_index, lineage in enumerate(self.lineages):
+
+            time_text = str(times[row_index]) if times[row_index] is not None else "?"
+            time_item = QTableWidgetItem(time_text)
+            time_item.setData(_CONFLICT_INDEX_ROLE, conflict_index)
+            self._table.setItem(row_index, 0, time_item)
+
+            for lineage_index, lineage in enumerate(self.lineages):
                 name = row[(lineage, "name")]
                 # No match found for this lineage: a real None when computed
                 # live via matches_to_df, but round-trips through a CSV (see
@@ -74,21 +96,23 @@ class ComparisonWidget(QWidget):
                 text = None if pd.isna(name) else str(name)
                 item = QTableWidgetItem(text)
                 item.setData(_CONFLICT_INDEX_ROLE, conflict_index)
-                self._table.setItem(row_index, column_index, item)
+                self._table.setItem(row_index, lineage_index + 1, item)
 
             resolved_button = QPushButton("Resolved")
             resolved_button.clicked.connect(partial(self._on_resolved_clicked, conflict_index))
-            self._table.setCellWidget(row_index, len(self.lineages), resolved_button)
+            self._table.setCellWidget(row_index, len(self.lineages) + 1, resolved_button)
 
         layout = QVBoxLayout()
         layout.addWidget(self._table)
         self.setLayout(layout)
 
     def _on_cell_clicked(self, row: int, column: int) -> None:
-        if column >= len(self.lineages):
+        # Column 0 is "Time" and the last column is the "Resolved" button;
+        # only the lineage name columns in between drive selection.
+        if column == 0 or column > len(self.lineages):
             return
 
-        main_column = self.lineages.index(self._main_name)
+        main_column = self.lineages.index(self._main_name) + 1
         item = self._table.item(row, main_column)
         name = item.text()
         self.row_clicked.emit(name)
@@ -99,7 +123,7 @@ class ComparisonWidget(QWidget):
             self.active_tracks.selected_nodes.add(node)
 
     def _on_resolved_clicked(self, conflict_index: int) -> None:
-        main_column = self.lineages.index(self._main_name)
+        main_column = self.lineages.index(self._main_name) + 1
         name = None
         for row_index in range(self._table.rowCount()):
             item = self._table.item(row_index, main_column)
