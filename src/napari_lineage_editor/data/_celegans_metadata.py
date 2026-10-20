@@ -2,12 +2,21 @@ from pathlib import Path
 from typing import Literal
 
 from dataset_registry import Registry
+from janelia_pathlib import from_janelia_uri
 from pydantic import BaseModel, model_validator
 
 
-def registry(path: Path) -> Registry:
+def registry(path: Path | str) -> Registry:
+    """Open the registry at `path`, resolving (and mounting, on macOS) a `janelia://` URI first.
+
+    Callers can pass either a plain local path or a `janelia://host/share/subpath`
+    URI -- the latter is translated to its real local mountpoint via
+    `janelia_pathlib`, so scripts just set `REGISTRY_PATH` to the `janelia://`
+    URI and never need to call into `janelia_pathlib` themselves.
+    """
+    local_path = from_janelia_uri(str(path))
     return Registry(
-        path,
+        Path(local_path),
         sample_metadata_model=CelegansSampleMetadata,
         representation_metadata_model=[CelegansImageRepMetadata, CelegansLineageRepMetadata],
     )

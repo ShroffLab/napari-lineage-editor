@@ -6,7 +6,7 @@ from napari_lineage_editor import get_conflicts, match_nodes, matches_to_df
 from napari_lineage_editor.data import get_sulston, load_lineage, nx_from_lineage_df, registry
 from napari_lineage_editor.data._utils import to_local_path
 
-REGISTRY_PATH = "/Users/malinmayorc/projects/celegans-cell-id/wormguides-data/registry"
+REGISTRY_PATH = "janelia://nrs.hhmi.org/shroff/Pharynx_Project/wormguides-data/registry"
 CURATED_SUBSTRING = "curated-by-alyssa"
 
 DIST_THRESHOLD = 10

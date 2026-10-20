@@ -9,7 +9,7 @@ from napari_lineage_editor.data import get_sulston, registry
 from napari_lineage_editor.data._load_lineages import load_lineage
 from napari_lineage_editor.data._utils import to_local_path
 
-REGISTRY_PATH = "/Users/malinmayorc/projects/celegans-cell-id/wormguides-data/registry"
+REGISTRY_PATH = "janelia://nrs.hhmi.org/shroff/Pharynx_Project/wormguides-data/registry"
 
 CURATED_SUBSTRING = "curated-by-alyssa"
 ZENODO_SUBSTRING = "zenodo"

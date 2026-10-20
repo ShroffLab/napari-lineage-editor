@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import dask
 import napari
 import pandas as pd
@@ -25,7 +23,7 @@ from napari_lineage_editor.widgets import (
     EmbryoLoaderWidget,
 )
 
-REGISTRY_PATH = Path("/Users/malinmayorc/projects/celegans-cell-id/wormguides-data/registry")
+REGISTRY_PATH = "janelia://nrs.hhmi.org/shroff/Pharynx_Project/wormguides-data/registry"
 IMAGE_METADATA_TYPE = "image"
 LINEAGE_METADATA_TYPE = "lineage"
 

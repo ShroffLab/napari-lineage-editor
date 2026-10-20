@@ -185,6 +185,12 @@ def save_tracks_to_csv(tracks: Tracks, path: Path) -> None:
     daughter if edges aren't tracked that way) get `parent_id == -1`,
     matching `_load_lineage`'s own convention.
 
+    Rows are sorted by `(time, cell_id)` before writing: `node_attrs()`'s
+    row order isn't guaranteed stable across graph states (e.g. before vs.
+    after a crop or an edit), so writing it as-is would reorder every row on
+    every save and make the on-disk diff unreadable even when only a
+    handful of rows actually changed.
+
     Args:
         tracks: The `Tracks` whose `graph_solution` to save.
         path: Destination CSV path, overwritten if it already exists.
@@ -209,6 +215,7 @@ def save_tracks_to_csv(tracks: Tracks, path: Path) -> None:
             "parent_id": [parent_by_node.get(node_id, -1) for node_id in node_ids],
         }
     )
+    out = out.sort_values(["time", "cell_id"]).reset_index(drop=True)
     out.to_csv(path, index=False)
 
 

@@ -30,7 +30,7 @@ from napari_lineage_editor.data import (
 from napari_lineage_editor.data._utils import to_local_path
 from napari_lineage_editor.widgets import CellNavigatorWidget, ComparisonWidget, EditCellNamesWidget
 
-REGISTRY_PATH = "/Users/malinmayorc/projects/celegans-cell-id/wormguides-data/registry"
+REGISTRY_PATH = "janelia://nrs.hhmi.org/shroff/Pharynx_Project/wormguides-data/registry"
 CURATED_SUBSTRING = "curated-by-alyssa"
 RECONCILED_SUBSTRING = "reconciled-annotations"
 
