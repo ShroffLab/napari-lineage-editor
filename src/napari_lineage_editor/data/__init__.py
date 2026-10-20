@@ -1,7 +1,6 @@
 from ._celegans_metadata import (
     CelegansImageRepMetadata,
     CelegansLineageRepMetadata,
-    CelegansRepMetadata,
     CelegansSampleMetadata,
     registry,
 )
@@ -12,7 +11,6 @@ from ._utils import get_sulston
 __all__ = [
     "CelegansImageRepMetadata",
     "CelegansLineageRepMetadata",
-    "CelegansRepMetadata",
     "CelegansSampleMetadata",
     "get_sulston",
     "load_images",

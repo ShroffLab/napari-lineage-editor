@@ -25,7 +25,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "dataset-registry[browse]>=0.1.1,<0.2",
+    "dataset-registry[browse]>=0.2.0,<0.3",
     "janelia-pathlib>=0.1.1,<0.2",
     "napari[pyqt6]>=0.7.1,<0.10",
     "tifffile>=2025,<2026",
@@ -107,6 +107,8 @@ filterwarnings = [
     "error",
     # if needed, add global ignores here, for example:
     # "ignore:Some message:SomeCategory",
+    "ignore:.*json_encoders.*:pydantic.warnings.PydanticDeprecatedSince20",
+
 ]
 
 # https://mypy.readthedocs.io/en/stable/config_file.html

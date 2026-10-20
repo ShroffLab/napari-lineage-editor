@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 from functools import lru_cache
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import dask.array as da
 import tifffile
 from dask import delayed
 
-from napari_lineage_editor.data._celegans_metadata import CelegansRepMetadata
+if TYPE_CHECKING:
+    from napari_lineage_editor.data import CelegansImageRepMetadata
 
 # Caches whole frames (one timepoint, or one timepoint-slice for embryo 3) so
 # napari re-rendering the same slice while scrubbing the time/z sliders
@@ -24,7 +28,7 @@ def _lazy_frame(path: Path, shape: tuple[int, ...], dtype: object) -> da.Array:
     return da.from_delayed(delayed(_read_frame_cached)(path), shape=shape, dtype=dtype)
 
 
-def load_images(image_dir: str, metadata: CelegansRepMetadata) -> da.Array:
+def load_images(image_dir: str, metadata: CelegansImageRepMetadata) -> da.Array:
     """Lazily stack `image_dir`'s per-timepoint (or per-timepoint-per-slice) tiffs.
 
     No directory listing happens -- every file path is built directly from
@@ -46,13 +50,13 @@ def load_images(image_dir: str, metadata: CelegansRepMetadata) -> da.Array:
         raise RuntimeError("representation metadata has no 'file_pattern'")
     timepoints = range(metadata.start_time, metadata.end_time + 1)
 
-    if metadata.start_z is None:
+    if metadata.start_z is None and metadata.end_z is None:
         paths = [Path(image_dir) / metadata.file_pattern.format(t=t) for t in timepoints]
         sample_frame = tifffile.imread(paths[0])
         frames = [_lazy_frame(path, sample_frame.shape, sample_frame.dtype) for path in paths]
         return da.stack(frames)
 
-    z_slices = range(metadata.start_z, metadata.end_z + 1)
+    z_slices = range(metadata.start_z, metadata.end_z + 1)  # type: ignore[arg-type, operator]
     sample_frame = tifffile.imread(
         Path(image_dir) / metadata.file_pattern.format(t=timepoints[0], z=z_slices[0])
     )
