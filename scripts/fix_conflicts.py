@@ -41,7 +41,6 @@ CURATED_SUBSTRING = "curated-by-alyssa"
 RECONCILED_SUBSTRING = "reconciled-annotations"
 
 _ACTIVE_POINTS_SIZE = 5
-_DRIFT_POINTS_SIZE = 8
 
 # SMB round-trips dominate read latency here, not CPU decode time, so a
 # handful of concurrent reads in flight helps -- but too many threads hammer
@@ -134,8 +133,6 @@ class FixConflictsWidget(QWidget):
         self.comparison_dock: object | None = None
         self.comparison_widget: ComparisonWidget | None = None
         self.conflicts_csv_path = None
-        self.drift_layer: napari.layers.Points | None = None
-        self.drift_csv_path = None
         self.image_layer: napari.layers.Image | None = None
         self.tracks = None
 
@@ -171,7 +168,7 @@ class FixConflictsWidget(QWidget):
         curated_repres = self.registry.load_representation(sample.id, curated_repr_id)
         csv_dir = to_local_path(curated_repres.path, self.registry.path).parent
         self._load_comparison(tv, csv_dir / f"lineage_conflicts_{sample.id}.csv")
-        self._load_drift_layer(csv_dir / f"location_drift_{sample.id}.csv")
+        self.drift_navigator_widget.load_csv(csv_dir / f"location_drift_{sample.id}.csv")
 
     def _on_save_clicked(self) -> None:
         if self.tracks is None or self.reconciled_repres is None:
@@ -184,8 +181,7 @@ class FixConflictsWidget(QWidget):
             self.comparison_widget.conflicts.to_csv(self.conflicts_csv_path, index=False)
             print(f"saved conflicts to {self.conflicts_csv_path}")
 
-        if self.drift_csv_path is not None:
-            self._save_drift_layer(self.drift_csv_path)
+        self.drift_navigator_widget.save_csv()
 
     def _load_image(self, sample_id: str) -> None:
         if self.image_layer is not None and self.image_layer in self.viewer.layers:
@@ -239,60 +235,6 @@ class FixConflictsWidget(QWidget):
         self.comparison_dock = self.viewer.window.add_dock_widget(
             self.comparison_widget, name="Conflicts", area="right"
         )
-
-    def _load_drift_layer(self, csv_path) -> None:
-        if self.drift_layer is not None and self.drift_layer in self.viewer.layers:
-            self.viewer.layers.remove(self.drift_layer)
-            self.drift_layer = None
-            self.drift_csv_path = None
-            self.drift_navigator_widget.set_drift_layer(None)
-
-        if not csv_path.exists():
-            return
-
-        drift_df = pd.read_csv(csv_path)
-        if len(drift_df) == 0:
-            return
-
-        points = drift_df[["t", "z", "y", "x"]].to_numpy()
-        self.drift_layer = napari.layers.Points(
-            points,
-            name="Drifted points",
-            features={"name": drift_df["name"]},
-            text="name",
-            size=_DRIFT_POINTS_SIZE,
-            face_color="red",
-            symbol="x",
-        )
-        self.drift_csv_path = csv_path
-        self.viewer.add_layer(self.drift_layer)
-        self.drift_navigator_widget.set_drift_layer(self.drift_layer)
-
-    def _save_drift_layer(self, csv_path) -> None:
-        """Overwrite the drift CSV with whatever points remain in `self.drift_layer`.
-
-        The user marks a drifted point resolved by deleting it from the
-        layer (napari's own point-deletion tool) -- so whatever's left when
-        Save is clicked is the current set of still-unresolved drift points.
-        """
-        if self.drift_layer is None or self.drift_layer not in self.viewer.layers:
-            pd.DataFrame(columns=["t", "z", "y", "x", "name"]).to_csv(csv_path, index=False)
-            print(f"saved drift to {csv_path}")
-            return
-
-        points = self.drift_layer.data
-        names = self.drift_layer.features["name"].to_numpy()
-        drift_df = pd.DataFrame(
-            {
-                "t": points[:, 0],
-                "z": points[:, 1],
-                "y": points[:, 2],
-                "x": points[:, 3],
-                "name": names,
-            }
-        )
-        drift_df.to_csv(csv_path, index=False)
-        print(f"saved drift to {csv_path}")
 
     def _set_points_size(self, tracks_viewer: TracksViewer, size: int) -> None:
         points_layer = tracks_viewer.tracking_layers.points_layer

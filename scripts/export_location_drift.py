@@ -40,6 +40,10 @@ def compute_unexplained_drift(curated_df: pd.DataFrame, zenodo_df: pd.DataFrame)
     kept unless it's a sibling-name-swap artifact: swapping the (cell,
     sibling) x/y positions between the two versions would bring the combined
     distance under `SWAP_RESOLVED_THRESHOLD`.
+
+    For each kept row, `matched_name`/`matched_dist` report whichever of the
+    cell's own zenodo position or a sibling's zenodo position the curated
+    position is actually closest to.
     """
     merged = curated_df.merge(zenodo_df, on=["time", "cell_name"], suffixes=("_curated", "_zenodo"))
     merged["dist"] = np.sqrt(
@@ -54,9 +58,12 @@ def compute_unexplained_drift(curated_df: pd.DataFrame, zenodo_df: pd.DataFrame)
     merged_by_time_name = {(row.time, row.cell_name): row for row in merged.itertuples()}
 
     unexplained_rows = []
+    matched_names = []
+    matched_dists = []
     for row in drifted.itertuples():
         siblings = _sibling_names(row.cell_name, names_at_time.get(row.time, set()))
         is_swap_artifact = False
+        best_name, best_dist = row.cell_name, row.dist
         for sibling in siblings:
             sibling_row = merged_by_time_name.get((row.time, sibling))
             if sibling_row is None:
@@ -71,8 +78,17 @@ def compute_unexplained_drift(curated_df: pd.DataFrame, zenodo_df: pd.DataFrame)
             if swapped_dist < SWAP_RESOLVED_THRESHOLD:
                 is_swap_artifact = True
                 break
+
+            sibling_dist = np.sqrt(
+                (row.x_curated - sibling_row.x_zenodo) ** 2
+                + (row.y_curated - sibling_row.y_zenodo) ** 2
+            )
+            if sibling_dist < best_dist:
+                best_name, best_dist = sibling, sibling_dist
         if not is_swap_artifact:
             unexplained_rows.append(row)
+            matched_names.append(best_name)
+            matched_dists.append(best_dist)
 
     result = pd.DataFrame(
         {
@@ -81,6 +97,9 @@ def compute_unexplained_drift(curated_df: pd.DataFrame, zenodo_df: pd.DataFrame)
             "y": [row.y_zenodo for row in unexplained_rows],
             "x": [row.x_zenodo for row in unexplained_rows],
             "name": [row.cell_name for row in unexplained_rows],
+            "dist": [row.dist for row in unexplained_rows],
+            "matched_name": matched_names,
+            "matched_dist": matched_dists,
         }
     )
     return result.sort_values(["t", "name"]).reset_index(drop=True)
