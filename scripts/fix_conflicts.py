@@ -17,7 +17,7 @@ import pandas as pd
 from dataset_registry import Registry
 from napari_track_edit.data_views import TracksViewer
 from napari_track_edit.data_views.views.tree_view.tree_widget import TreeWidget
-from qtpy.QtWidgets import QComboBox, QPushButton, QVBoxLayout, QWidget
+from qtpy.QtWidgets import QCheckBox, QComboBox, QPushButton, QVBoxLayout, QWidget
 
 from napari_lineage_editor import NameAnnotator
 from napari_lineage_editor.data import (
@@ -118,6 +118,9 @@ class FixConflictsWidget(QWidget):
         load_button = QPushButton("Load")
         load_button.clicked.connect(self._on_load_clicked)
 
+        self._load_into_memory_checkbox = QCheckBox("Load images into memory")
+        self._load_into_memory_checkbox.setChecked(True)
+
         self._save_button = QPushButton("Save")
         self._save_button.setEnabled(False)
         self._save_button.clicked.connect(self._on_save_clicked)
@@ -142,6 +145,7 @@ class FixConflictsWidget(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(self._combo)
         layout.addWidget(load_button)
+        layout.addWidget(self._load_into_memory_checkbox)
         layout.addWidget(self._save_button)
         layout.addWidget(self.cell_navigator_widget)
         layout.addWidget(self.edit_cell_names_widget)
@@ -194,6 +198,8 @@ class FixConflictsWidget(QWidget):
 
         image_repres = self.registry.load_representation(sample_id, image_repr_id)
         images = load_images(image_repres, self.registry.path)
+        if self._load_into_memory_checkbox.isChecked():
+            images = images.compute()
         # Offset the time axis by start_time so napari's shared time slider
         # lines up with the tracks' own real timepoint (see
         # EmbryoLoaderWidget._load_image_representation).
