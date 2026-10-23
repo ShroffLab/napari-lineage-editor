@@ -16,6 +16,28 @@ LINEAGE_METADATA_TYPE = "lineage"
 SULSTON_SAMPLE_NAME = "Sulston"
 REGISTRY_PATH_PREFIX = "registry://"
 
+# The geff lineage has a handful of names stored with a lowercase typo in
+# the second letter ("Ab..." instead of "AB..."), which makes has_node()
+# fail for callers using the correct casing (e.g. names read from curated
+# CSVs). Fix up just these known cases rather than guessing at a general
+# casing rule, since Sulston names otherwise rely on meaningful lowercase
+# suffixes (a/p/l/r/d/v).
+SULSTON_NAME_FIXUPS = {
+    "Abprppppppa": "ABprppppppa",
+    "Abaraaaapaa": "ABaraaaapaa",
+    "Abalppaappp": "ABalppaappp",
+    "Abplppppppa": "ABplppppppa",
+}
+
+# The geff lineage is also missing a handful of real divisions outright --
+# not a typo, the child nodes just don't exist in the tree at all, even
+# though the parent does. Patch in the missing parent/child edges by name
+# (confirmed present with these exact parents in the more complete TSV
+# lineage at /Users/malinmayorc/data/celegans-cell-id/lineage_hermaphrodite.tsv).
+SULSTON_MISSING_DIVISIONS = {
+    "ABplapappppa": ["ABplapappppaa", "ABplapappppap"],
+}
+
 
 def from_relative_path(
     path: str,
@@ -64,4 +86,14 @@ def get_sulston(registry: Registry) -> nx.DiGraph:
     )
     graph, _metadata = geff.read(path, backend="networkx")
 
-    return nx.relabel_nodes(graph, nx.get_node_attributes(graph, "name"))
+    names = {
+        node_id: SULSTON_NAME_FIXUPS.get(name, name)
+        for node_id, name in nx.get_node_attributes(graph, "name").items()
+    }
+    graph = nx.relabel_nodes(graph, names)
+
+    for parent_name, child_names in SULSTON_MISSING_DIVISIONS.items():
+        for child_name in child_names:
+            graph.add_edge(parent_name, child_name)
+
+    return graph

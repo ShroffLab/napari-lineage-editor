@@ -20,6 +20,12 @@ def main() -> None:
     )
     parser.add_argument("sample_id")
     parser.add_argument("repr_id")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Recompute parent_id even if the CSV already has one "
+        "(e.g. after fixing the sulston lineage source).",
+    )
     args = parser.parse_args()
 
     reg = registry(REGISTRY_PATH)
@@ -28,8 +34,10 @@ def main() -> None:
 
     df = pd.read_csv(path)
     if "parent_id" in df.columns:
-        print(f"{path} already has parent_id, nothing to do")
-        return
+        if not args.force:
+            print(f"{path} already has parent_id, nothing to do (use --force to recompute)")
+            return
+        df = df.drop(columns=["parent_id"])
 
     if "cell_id" not in df.columns:
         # Start at 1, not 0 -- see the matching comment in
