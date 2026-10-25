@@ -27,6 +27,8 @@ class CelegansSampleMetadata(BaseModel):
 
     strain: str | None = None
     """The imaged strain's genotype/cross, e.g. `"SLS267xOH15257"`."""
+    image_rep: str | None = None
+    """The default/best image representation"""
 
 
 class CelegansImageRepMetadata(BaseModel):
