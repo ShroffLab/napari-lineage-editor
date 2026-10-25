@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import dask
 import napari
-import pandas as pd
-from dataset_registry import Registry
-from funtracks.data_model.tracks import Tracks
 from napari_track_edit.data_views import TracksViewer
 from napari_track_edit.data_views.views.tree_view.tree_widget import TreeWidget
 from qtpy.QtWidgets import (
@@ -19,9 +18,14 @@ from napari_lineage_editor.widgets import (
     CellNavigatorWidget,
     ComparisonWidget,
     CropWidget,
-    EditCellNamesWidget,
     EmbryoLoaderWidget,
 )
+
+if TYPE_CHECKING:
+    import pandas as pd
+    from dataset_registry import Registry
+    from funtracks.data_model.tracks import Tracks
+
 
 REGISTRY_PATH = "janelia://nrs.hhmi.org/shroff/Pharynx_Project/wormguides-data/registry"
 IMAGE_METADATA_TYPE = "image"
@@ -36,7 +40,7 @@ _ACTIVE_POINTS_SIZE = 5
 _VIEW_ONLY_POINTS_SIZE = 2
 
 
-class LineageEditorWidget(QWidget):
+class ViewWormguides(QWidget):
     def __init__(self, viewer: napari.Viewer, registry: Registry) -> None:
         super().__init__()
         self.viewer = viewer
@@ -45,9 +49,6 @@ class LineageEditorWidget(QWidget):
         self.data_widget = EmbryoLoaderWidget(registry)
         self.cell_navigator_widget = CellNavigatorWidget(
             TracksViewer.get_instance(viewer), {}, lambda _track_id: [], lambda _name: None
-        )
-        self.edit_cell_names_widget = EditCellNamesWidget(
-            TracksViewer.get_instance(viewer), {}, set()
         )
         self.crop_dock: object | None = None
         self.show_view_only_trees = False
@@ -67,7 +68,6 @@ class LineageEditorWidget(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(self.data_widget)
         layout.addWidget(self.cell_navigator_widget)
-        layout.addWidget(self.edit_cell_names_widget)
         self.setLayout(layout)
 
         # signals
@@ -216,9 +216,6 @@ class LineageEditorWidget(QWidget):
             name_annotator.get_valid_names,
             name_annotator.get_sulston_sibling_name,
         )
-        self.edit_cell_names_widget.set_name_lookups(
-            name_annotator.track_id_by_name, name_annotator.invalid_track_ids
-        )
 
     def _update_tracks_viewer(self, index: int, new_tracks: Tracks, *, view_only: bool) -> None:
         """Replace a `TracksViewer`'s tracks, undoing side effects that assume it's the only one.
@@ -292,7 +289,7 @@ def main() -> None:
     reg = registry(REGISTRY_PATH)
 
     viewer = napari.Viewer(title="Wormguides lineage editor")
-    loader_widget = LineageEditorWidget(viewer, reg)
+    loader_widget = ViewWormguides(viewer, reg)
     viewer.window.add_dock_widget(loader_widget, name="Lineage Editor")
     napari.run()
 
