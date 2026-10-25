@@ -183,8 +183,9 @@ def format_report(title: str, result: dict) -> str:
         f"  B = {result['pred_full_label']}",
         f"  {len(cases)} divergence(s) found." if cases else "  No divergences found.",
     ]
-    summaries = sorted(_case_summary(case) for case in cases)
-    lines.extend(f"  {summary}" for summary in summaries)
+    # case numbers match the exported case_<n>.graphml/.png filenames (see
+    # export_cases), so a reader can go straight from a report line to its plot.
+    lines.extend(f"  [case {i}] {_case_summary(case)}" for i, case in enumerate(cases))
     return "\n".join(lines) + "\n"
 
 
@@ -218,21 +219,31 @@ def plot_case_graph(
         attrs = case_graph.nodes[node_id]
         return attrs["t"], _collapsed_coord(attrs) + plot_dy[attrs["source"]]
 
+    # Label only the earliest-timepoint node per (source, name) tracklet --
+    # labeling every node gets unreadable fast once a tracklet spans many
+    # timepoints.
+    first_node_per_tracklet: dict[tuple[str, str], str] = {}
+    for node_id, attrs in sorted(case_graph.nodes(data=True), key=lambda item: item[1]["t"]):
+        key = (attrs["source"], attrs["name"])
+        first_node_per_tracklet.setdefault(key, node_id)
+    label_nodes = set(first_node_per_tracklet.values())
+
     n_timepoints = len({attrs["t"] for _, attrs in case_graph.nodes(data=True)})
     fig, ax = plt.subplots(figsize=(max(6, n_timepoints * 0.9), 4))
     for node_id, attrs in case_graph.nodes(data=True):
         color = colors[attrs["source"]]
         x, y = _pos(node_id)
         ax.scatter(x, y, color=color, zorder=3)
-        ax.text(
-            x,
-            y + label_dy[attrs["source"]],
-            attrs["name"],
-            color=color,
-            ha="center",
-            va="center",
-            fontsize=9,
-        )
+        if node_id in label_nodes:
+            ax.text(
+                x,
+                y + label_dy[attrs["source"]],
+                attrs["name"],
+                color=color,
+                ha="center",
+                va="center",
+                fontsize=9,
+            )
 
     for u, v, attrs in case_graph.edges(data=True):
         xs, ys = zip(_pos(u), _pos(v))
