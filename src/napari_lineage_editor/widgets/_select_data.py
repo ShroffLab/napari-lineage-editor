@@ -29,10 +29,11 @@ SULSTON_SAMPLE_NAME = "Sulston"
 class EmbryoLoaderWidget(QWidget):
     new_data = Signal(Any, Any, Any)
 
-    def __init__(self, registry: Registry):
+    def __init__(self, registry: Registry, show_all_images: bool = False):
         super().__init__()
         self.registry = registry
         self.sulston_lineage = get_sulston(registry)
+        self.show_all_images = show_all_images
         self._samples_by_name = {
             sample.name: sample
             for sample in sorted(
@@ -46,40 +47,49 @@ class EmbryoLoaderWidget(QWidget):
         self._combo.addItems(list(self._samples_by_name))
         self._combo.currentTextChanged.connect(self._on_sample_changed)
 
-        self._representation_checkboxes_layout = QVBoxLayout()
+        self._rep_checkboxes_layout = QVBoxLayout()
 
         load_button = QPushButton("Load")
         load_button.clicked.connect(self._on_load_clicked)
 
         layout = QVBoxLayout()
         layout.addWidget(self._combo)
-        layout.addLayout(self._representation_checkboxes_layout)
+        layout.addLayout(self._rep_checkboxes_layout)
         layout.addWidget(load_button)
         self.setLayout(layout)
 
         self._on_sample_changed(self._combo.currentText())
 
+    def _add_rep(self, rep: Representation) -> None:
+        checkbox = QCheckBox(rep.name)
+        checkbox.setChecked(True)
+        checkbox.setProperty("representation_id", rep.id)
+        self._rep_checkboxes_layout.addWidget(checkbox)
+
     def _on_sample_changed(self, sample_name: str) -> None:
-        while (item := self._representation_checkboxes_layout.takeAt(0)) is not None:
+        while (item := self._rep_checkboxes_layout.takeAt(0)) is not None:
             item.widget().deleteLater()
 
         sample = self._samples_by_name[sample_name]
-        for representation_id in self.registry.list_representations(sample.id):
-            representation = self.registry.load_representation(sample.id, representation_id)
-            checkbox = QCheckBox(representation.name)
-            checkbox.setChecked(True)
-            checkbox.setProperty("representation_id", representation.id)
-            self._representation_checkboxes_layout.addWidget(checkbox)
+        image_rep = self.registry.load_representation(sample.id, sample.metadata.image_rep)
+        show_all = self.show_all_images or image_rep is None
+        if not show_all:
+            self._add_rep(image_rep)
+        for rep_id in self.registry.list_representations(sample.id):
+            rep = self.registry.load_representation(sample.id, rep_id)
+            if rep.metadata.type == "image" and not show_all:
+                continue
+            self._add_rep(rep)
 
-    def _checked_representation_ids(self) -> list[str]:
+    def _checked_rep_ids(self) -> list[str]:
         ids = []
-        for i in range(self._representation_checkboxes_layout.count()):
-            checkbox = self._representation_checkboxes_layout.itemAt(i).widget()
+        for i in range(self._rep_checkboxes_layout.count()):
+            checkbox = self._rep_checkboxes_layout.itemAt(i).widget()
             if checkbox.isChecked():
                 ids.append(checkbox.property("representation_id"))
         return ids
 
-    def _load_image_representation(self, representation: Representation) -> napari.layers.Image:
+    def _load_image_rep(self, representation: Representation) -> napari.layers.Image:
         images = load_images(representation, self.registry.path)
         # Offset the time axis by start_time so napari's shared time slider
         # lines up layers on the same *real* timepoint, even when
@@ -91,9 +101,7 @@ class EmbryoLoaderWidget(QWidget):
             images, name=representation.name, blending="additive", translate=translate
         )
 
-    def _load_lineage_representation(
-        self, representation: Representation
-    ) -> tuple[pd.DataFrame, str]:
+    def _load_lineage_rep(self, representation: Representation) -> tuple[pd.DataFrame, str]:
         """Load one lineage representation, either as the editable tracks or a view-only overlay.
 
         Only one lineage can be the editable tracks shown in the tree/table/
@@ -114,15 +122,15 @@ class EmbryoLoaderWidget(QWidget):
         track_dfs = []
         tracks_names = []
         sample = self._samples_by_name[self._combo.currentText()]
-        representation_ids = self._checked_representation_ids()
+        representation_ids = self._checked_rep_ids()
         if not representation_ids:
             raise RuntimeError(f"no representation checked for sample {sample.name!r}")
         for representation_id in representation_ids:
             representation = self.registry.load_representation(sample.id, representation_id)
             if representation.metadata.type == "image":
-                images.append(self._load_image_representation(representation))
+                images.append(self._load_image_rep(representation))
             elif representation.metadata.type == "lineage":
-                track, name = self._load_lineage_representation(representation)
+                track, name = self._load_lineage_rep(representation)
                 track_dfs.append(track)
                 tracks_names.append(name)
         self.new_data.emit(images, track_dfs, tracks_names)
