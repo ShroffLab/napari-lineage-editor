@@ -52,9 +52,13 @@ class EmbryoLoaderWidget(QWidget):
         load_button = QPushButton("Load")
         load_button.clicked.connect(self._on_load_clicked)
 
+        self._load_into_memory_checkbox = QCheckBox("Load images into memory")
+        self._load_into_memory_checkbox.setChecked(True)
+
         layout = QVBoxLayout()
         layout.addWidget(self._combo)
         layout.addLayout(self._rep_checkboxes_layout)
+        layout.addWidget(self._load_into_memory_checkbox)
         layout.addWidget(load_button)
         self.setLayout(layout)
 
@@ -91,6 +95,8 @@ class EmbryoLoaderWidget(QWidget):
 
     def _load_image_rep(self, representation: Representation) -> napari.layers.Image:
         images = load_images(representation, self.registry.path)
+        if self._load_into_memory_checkbox.isChecked():
+            images = images.compute()
         # Offset the time axis by start_time so napari's shared time slider
         # lines up layers on the same *real* timepoint, even when
         # representations of the same embryo start at different t (e.g.
