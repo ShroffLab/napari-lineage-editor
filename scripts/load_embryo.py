@@ -12,7 +12,7 @@ from qtpy.QtWidgets import (
 )
 
 import napari_lineage_editor as nle
-from napari_lineage_editor.data import nx_from_tracks, registry
+from napari_lineage_editor.data import get_sulston, nx_from_tracks, registry
 from napari_lineage_editor.widgets import (
     CellNavigatorWidget,
     ComparisonWidget,
@@ -45,7 +45,7 @@ class ViewWormguides(QWidget):
         self.comparison_dock: object | None = None
         self.data_widget = EmbryoLoaderWidget(registry)
         self.cell_navigator_widget = CellNavigatorWidget(
-            TracksViewer.get_instance(viewer), {}, lambda _track_id: [], lambda _name: None
+            TracksViewer.get_instance(viewer), get_sulston(registry)
         )
         self.show_view_only_trees = False
 

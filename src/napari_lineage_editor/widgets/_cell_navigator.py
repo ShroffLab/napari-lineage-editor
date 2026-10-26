@@ -15,44 +15,35 @@ from qtpy.QtWidgets import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
+    import networkx as nx
     from napari_track_edit.data_views import TracksViewer
+
+NAME_KEY = "name"
 
 
 class CellNavigatorWidget(QWidget):
     """Type a cell name, jump to the start or end of its tracklet in the active lineage.
 
-    Autocompletes against `track_id_by_name`, refreshed automatically
-    whenever the active tracks change.
+    Autocompletes against `track_id_by_name`, rebuilt from the active tracks'
+    `name` attribute automatically whenever the active tracks change.
     """
 
     def __init__(
         self,
         tracks_viewer: TracksViewer,
-        track_id_by_name: dict[str, int],
-        get_valid_names: Callable[[int], list[str]],
-        get_sulston_sibling_name: Callable[[str], str | None],
+        sulston_lineage: nx.DiGraph,
     ) -> None:
         """
         Args:
             tracks_viewer: The active lineage's `TracksViewer`.
-            track_id_by_name: `NameAnnotator.track_id_by_name` for the active
-                tracks -- held by reference and mutated in place by the
-                annotator, so this widget always sees the current mapping
-                without needing to be told when it changes.
-            get_valid_names: `NameAnnotator.get_valid_names`, bound to the
-                active tracks' annotator -- used to suggest names for the
-                selected node's tracklet based on its current graph-parent.
-            get_sulston_sibling_name: `NameAnnotator.get_sulston_sibling_name`,
-                used by "Select Siblings" to find the other Sulston child of
-                the selected node's parent.
+            sulston_lineage: The Sulston reference lineage, used to suggest
+                valid names for a tracklet based on its graph-parent's
+                current name, and to find a named cell's Sulston sibling.
         """
         super().__init__()
         self._tracks_viewer = tracks_viewer
-        self._track_id_by_name = track_id_by_name
-        self._get_valid_names = get_valid_names
-        self._get_sulston_sibling_name = get_sulston_sibling_name
+        self._sulston_lineage = sulston_lineage
+        self._track_id_by_name: dict[str, int] = {}
 
         self._name_edit = QLineEdit()
         self._name_edit.setPlaceholderText("Cell name, e.g. ABa")
@@ -89,22 +80,82 @@ class CellNavigatorWidget(QWidget):
         self._tracks_viewer.tracks_updated.connect(self._on_tracks_updated)
         self._tracks_viewer.node_selection_updated.connect(self._on_selection_updated)
 
-    def set_name_lookups(
-        self,
-        track_id_by_name: dict[str, int],
-        get_valid_names: Callable[[int], list[str]],
-        get_sulston_sibling_name: Callable[[str], str | None],
-    ) -> None:
-        """Point this widget at a new `NameAnnotator`'s lookups (e.g. after a crop)."""
-        self._track_id_by_name = track_id_by_name
-        self._get_valid_names = get_valid_names
-        self._get_sulston_sibling_name = get_sulston_sibling_name
+        self._rebuild_track_id_by_name()
 
     def set_name(self, name: str) -> None:
         """Populate the name text box, e.g. so another widget's selection is easy to compare."""
         self._name_edit.setText(name)
 
+    def _rebuild_track_id_by_name(self) -> None:
+        """Rebuild `track_id_by_name` from the active tracks' current `name` attribute values.
+
+        Rebuilt from scratch on every tracks update (e.g. after a crop,
+        which produces a new `Tracks` with its own node ids) rather than
+        tracked incrementally, since this widget doesn't observe individual
+        renames -- only whole-tracks swaps via `tracks_updated`.
+        """
+        self._track_id_by_name.clear()
+        tracks = self._tracks_viewer.tracks
+        if tracks is None or NAME_KEY not in tracks.graph_solution.node_attr_keys():
+            return
+
+        node_ids = list(tracks.graph_solution.node_ids())
+        names = tracks.get_nodes_attr(node_ids, NAME_KEY)
+        self._track_id_by_name.update(
+            (name, tracks.get_track_id(node_id))
+            for node_id, name in zip(node_ids, names, strict=True)
+            if name is not None
+        )
+
+    def _get_sulston_parent(self, name: str) -> str | None:
+        """The Sulston lineage's parent name for `name`, or `None` if `name` is a root."""
+        parents = list(self._sulston_lineage.predecessors(name))
+        if not parents:
+            return None
+        if len(parents) > 1:
+            raise ValueError(f"Sulston lineage can't have multiple parents for {name!r}")
+        return parents[0]
+
+    def _get_sulston_children(self, name: str) -> list[str]:
+        """The Sulston lineage's child names for `name` (0, 1, or 2 of them)."""
+        return list(self._sulston_lineage.successors(name))
+
+    def _get_sulston_sibling_name(self, name: str) -> str | None:
+        """The Sulston lineage's other child of `name`'s parent, or `None` if there isn't one."""
+        parent_name = self._get_sulston_parent(name)
+        if parent_name is None:
+            return None
+        siblings = [
+            child_name for child_name in self._get_sulston_children(parent_name) if child_name != name
+        ]
+        return siblings[0] if siblings else None
+
+    def _get_valid_names(self, track_id: int) -> list[str]:
+        """Name(s) that would satisfy Sulston for `track_id`, given its actual graph-parent.
+
+        A tracklet with no graph-parent (the lineage's start) has no
+        suggestion -- any root name is as good as another without more
+        context. Otherwise, suggestions are all of Sulston's children of the
+        parent's *current* name -- both daughters, even if one is already
+        held by a sibling tracklet elsewhere, since the user may want to
+        swap rather than only fill in whichever slot happens to be empty.
+        """
+        tracks = self._tracks_viewer.tracks
+        _time, first_node = tracks.get_track_node_times(track_id)[0]
+        preds = tracks.predecessors(first_node)
+        if not preds:
+            return []
+        parent_track_id = tracks.get_track_id(preds[0])
+
+        _time, parent_first_node = tracks.get_track_node_times(parent_track_id)[0]
+        parent_name = tracks.get_node_attr(parent_first_node, NAME_KEY)
+        if parent_name is None:
+            return []
+
+        return self._get_sulston_children(parent_name)
+
     def _on_tracks_updated(self, _refresh_view: bool | None) -> None:
+        self._rebuild_track_id_by_name()
         self._name_completer.model().setStringList(sorted(self._track_id_by_name))
         self._on_selection_updated()
 
