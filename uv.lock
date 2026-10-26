@@ -2416,6 +2416,7 @@ dependencies = [
     { name = "napari" },
     { name = "napari-track-edit" },
     { name = "pyqt6" },
+    { name = "scipy" },
     { name = "tifffile" },
     { name = "traccuracy" },
 ]
@@ -2443,6 +2444,7 @@ requires-dist = [
     { name = "napari", specifier = ">=0.7.1,<0.10" },
     { name = "napari-track-edit", git = "https://github.com/live-image-tracking-tools/napari-track-edit?tag=celegans-editing" },
     { name = "pyqt6", specifier = ">=6.6,<6.8" },
+    { name = "scipy", specifier = ">=1.10,<2" },
     { name = "tifffile", specifier = ">=2025,<2026" },
     { name = "traccuracy", specifier = ">=0.4.3" },
 ]
