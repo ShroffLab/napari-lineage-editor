@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 import dask
 import napari
 from napari_track_edit.data_views import TracksViewer
-from napari_track_edit.data_views.views.tree_view.tree_widget import TreeWidget
 from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
@@ -15,6 +14,7 @@ from napari_lineage_editor.data import get_sulston, registry
 from napari_lineage_editor.widgets import (
     CellNavigatorWidget,
     EmbryoLoaderWidget,
+    TreeViewControlWidget,
 )
 
 if TYPE_CHECKING:
@@ -44,22 +44,19 @@ class ViewWormguides(QWidget):
         self.cell_navigator_widget = CellNavigatorWidget(
             TracksViewer.get_instance(viewer), get_sulston(registry)
         )
-        self.show_view_only_trees = False
+        self.tree_view_control_widget = TreeViewControlWidget(viewer)
 
         # book-keeping of data
         self.image_layers = []
         self.tracks: list[Tracks] = []
         self.tracks_viewers: list[TracksViewer] = []
         self.track_names: list[str] = []
-        self.view_only_tree_widgets: list[QWidget] = []
 
-        # main tree widget, managed by nte
-        tree_widget = TreeWidget(self.viewer)
-        self.viewer.window.add_dock_widget(tree_widget, area="bottom")
         # layout
         layout = QVBoxLayout()
         layout.addWidget(self.data_widget)
         layout.addWidget(self.cell_navigator_widget)
+        layout.addWidget(self.tree_view_control_widget)
         self.setLayout(layout)
 
         # signals
@@ -85,8 +82,6 @@ class ViewWormguides(QWidget):
         for layer in self.image_layers:
             self.viewer.layers.remove(layer)
         self.image_layers = []
-        for dock in self.view_only_tree_widgets:
-            self.viewer.window.remove_dock_widget(dock)
         TracksViewer.get_instance(self.viewer).clear_viewonly_tracks()
 
     def update_data(
@@ -120,21 +115,13 @@ class ViewWormguides(QWidget):
                 # compete visually with the editable lineage's own coloring.
                 overlay_tracks_viewer.set_color_feature(None)
                 self._set_points_size(overlay_tracks_viewer, _VIEW_ONLY_POINTS_SIZE)
-                if self.show_view_only_trees:
-                    self._open_tree_view(name, overlay_tracks_viewer)
+
+        self.tree_view_control_widget.set_lineages(
+            dict(zip(self.track_names, self.tracks_viewers, strict=True)),
+            checked_name=self.active_tracks_name,
+        )
 
         self.configure()
-
-    def _open_tree_view(self, tracks_name: str, tree_tracks_viewer: TracksViewer) -> None:
-        """Open a `TreeWidget` dock for one lineage's `TracksViewer` (editable or view-only).
-
-        Closes and replaces any previously-open tree view under the same
-        name, so reloading the same representation doesn't accumulate
-        duplicate docks.
-        """
-        tree_widget = TreeWidget(self.viewer, tracks_viewer=tree_tracks_viewer)
-        dock = self.viewer.window.add_dock_widget(tree_widget, area="bottom", name=f"{tracks_name}")
-        self.view_only_tree_widgets.append(dock)
 
     def update_tracks(self, index: int, new_tracks: Tracks):
         self._update_tracks_viewer(index, new_tracks, view_only=index != 0)

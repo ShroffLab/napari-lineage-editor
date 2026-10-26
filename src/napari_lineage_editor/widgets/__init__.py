@@ -4,6 +4,7 @@ from ._compare import ComparisonWidget
 from ._crop import CropWidget
 from ._drift_navigator import DriftNavigatorWidget
 from ._select_data import EmbryoLoaderWidget
+from ._tree_view_control import TreeViewControlWidget
 
 __all__ = [
     "CellNavigatorWidget",
@@ -12,4 +13,5 @@ __all__ = [
     "DriftNavigatorWidget",
     "EditCellNamesWidget",
     "EmbryoLoaderWidget",
+    "TreeViewControlWidget",
 ]
