@@ -33,10 +33,18 @@ _SMB_READ_THREADS = 4
 
 _ACTIVE_POINTS_SIZE = 5
 _VIEW_ONLY_POINTS_SIZE = 2
-# One offset per data axis (t, z, y, x) -- TextManager.translation is indexed
-# by the full ndim, not just the two currently-displayed axes, so a 2-tuple
-# raises IndexError as soon as napari tries to compute text coordinates.
-_NAME_TEXT_OFFSET = (0, 0, -10, 0)
+
+_NAME_TEXT_OFFSET_MAGNITUDE = 5
+# Each tuple is one offset per data axis (t, z, y, x) -- TextManager.translation
+# is indexed by the full ndim, not just the two currently-displayed axes, so a
+# 2-tuple raises IndexError as soon as napari tries to compute text
+# coordinates. Lineages cycle through these three directions (y only, x only,
+# both) rather than growing the offset's magnitude, so every label stays the
+# same size/legibility regardless of how many lineages are loaded.
+_M = _NAME_TEXT_OFFSET_MAGNITUDE
+_NAME_TEXT_OFFSETS = [(0, 0, -_M, 0), (0, 0, 0, -_M), (0, 0, -_M, -_M)]
+_ACTIVE_NAME_TEXT_COLOR = "white"
+_VIEW_ONLY_NAME_TEXT_COLORS = ["cyan", "magenta", "yellow", "orange"]
 
 
 class ViewWormguides(QWidget):
@@ -110,7 +118,9 @@ class ViewWormguides(QWidget):
             self.tracks_viewers.append(tv)
 
         if len(self.view_only_tracks) > 0:
-            for vot, name in zip(self.view_only_tracks, self.view_only_tracks_names, strict=True):
+            for i, (vot, name) in enumerate(
+                zip(self.view_only_tracks, self.view_only_tracks_names, strict=True)
+            ):
                 tv.add_viewonly_tracks(vot, name)
                 overlay_tracks_viewer = tv.viewonly_tracks[name].tracks_viewer
                 self.tracks_viewers.append(overlay_tracks_viewer)
@@ -119,7 +129,14 @@ class ViewWormguides(QWidget):
                 # compete visually with the editable lineage's own coloring.
                 overlay_tracks_viewer.set_color_feature(None)
                 self._set_points_size(overlay_tracks_viewer, _VIEW_ONLY_POINTS_SIZE)
-                self._set_points_text(overlay_tracks_viewer)
+                # Active lineage is index 0 (see below), so overlays start at 1.
+                self._set_points_text(
+                    overlay_tracks_viewer,
+                    offset=_NAME_TEXT_OFFSETS[(i + 1) % len(_NAME_TEXT_OFFSETS)],
+                    color=_VIEW_ONLY_NAME_TEXT_COLORS[i % len(_VIEW_ONLY_NAME_TEXT_COLORS)],
+                )
+
+        self._set_points_text(tv, offset=_NAME_TEXT_OFFSETS[0], color=_ACTIVE_NAME_TEXT_COLOR)
 
         self.tree_view_control_widget.set_lineages(
             dict(zip(self.track_names, self.tracks_viewers, strict=True)),
@@ -159,7 +176,16 @@ class ViewWormguides(QWidget):
         tracks_viewer.set_color_feature(color_feature_key)
         points_size = _VIEW_ONLY_POINTS_SIZE if view_only else _ACTIVE_POINTS_SIZE
         self._set_points_size(tracks_viewer, points_size)
-        self._set_points_text(tracks_viewer)
+        # `index` is 0 for the active lineage, 1+ for each view-only overlay
+        # (see `update_data`), matching `_NAME_TEXT_OFFSETS`' own indexing.
+        color = (
+            _VIEW_ONLY_NAME_TEXT_COLORS[(index - 1) % len(_VIEW_ONLY_NAME_TEXT_COLORS)]
+            if view_only
+            else _ACTIVE_NAME_TEXT_COLOR
+        )
+        self._set_points_text(
+            tracks_viewer, offset=_NAME_TEXT_OFFSETS[index % len(_NAME_TEXT_OFFSETS)], color=color
+        )
 
         for layer, visible in visible_by_layer.items():
             if layer in self.viewer.layers:
@@ -181,17 +207,24 @@ class ViewWormguides(QWidget):
         if points_layer is not None:
             points_layer.current_size = size
 
-    def _set_points_text(self, tracks_viewer: TracksViewer) -> None:
-        """Label each point with its cell name, offset so the text doesn't cover the point."""
+    def _set_points_text(
+        self, tracks_viewer: TracksViewer, *, offset: tuple[int, int, int, int], color: str
+    ) -> None:
+        """Label each point with its cell name, offset/colored so overlaid lineages stay legible.
+
+        `offset`/`color` are per-lineage (see `_NAME_TEXT_OFFSETS`/
+        `_VIEW_ONLY_NAME_TEXT_COLORS`), so the same cell's name in different
+        overlaid lineages doesn't render as indistinguishable stacked text.
+        """
         points_layer = tracks_viewer.tracking_layers.points_layer
         if points_layer is not None:
             points_layer.text = "Name"
-            points_layer.text.translation = _NAME_TEXT_OFFSET
+            points_layer.text.translation = offset
+            points_layer.text.color = color
 
     def configure(self):
         tv = TracksViewer.get_instance(self.viewer)
         self._set_points_size(tv, _ACTIVE_POINTS_SIZE)
-        self._set_points_text(tv)
 
         for image in self.image_layers:
             image.reset_contrast_limits()
