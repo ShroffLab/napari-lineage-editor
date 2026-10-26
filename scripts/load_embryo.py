@@ -11,11 +11,9 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-import napari_lineage_editor as nle
-from napari_lineage_editor.data import get_sulston, nx_from_tracks, registry
+from napari_lineage_editor.data import get_sulston, registry
 from napari_lineage_editor.widgets import (
     CellNavigatorWidget,
-    ComparisonWidget,
     EmbryoLoaderWidget,
 )
 
@@ -42,7 +40,6 @@ class ViewWormguides(QWidget):
         super().__init__()
         self.viewer = viewer
         # widgets
-        self.comparison_dock: object | None = None
         self.data_widget = EmbryoLoaderWidget(registry)
         self.cell_navigator_widget = CellNavigatorWidget(
             TracksViewer.get_instance(viewer), get_sulston(registry)
@@ -126,7 +123,6 @@ class ViewWormguides(QWidget):
                 if self.show_view_only_trees:
                     self._open_tree_view(name, overlay_tracks_viewer)
 
-        self.refresh_comparison_widget()
         self.configure()
 
     def _open_tree_view(self, tracks_name: str, tree_tracks_viewer: TracksViewer) -> None:
@@ -140,36 +136,9 @@ class ViewWormguides(QWidget):
         dock = self.viewer.window.add_dock_widget(tree_widget, area="bottom", name=f"{tracks_name}")
         self.view_only_tree_widgets.append(dock)
 
-    def refresh_comparison_widget(self) -> None:
-        """Tear down and rebuild the comparison dock to match the currently-loaded lineages.
-
-        Only shown once 2+ lineages are loaded -- `match_nodes`/`matches_to_df`
-        need at least two lineages to compare. Always rebuilt from scratch
-        (rather than updated in place) on every load, so stale matches from
-        the previous load never linger.
-        """
-        if self.comparison_dock is not None:
-            self.viewer.window.remove_dock_widget(self.comparison_dock)
-            self.comparison_dock = None
-
-        if len(self.view_only_tracks) < 1:
-            return
-
-        active_tracks_viewer = TracksViewer.get_instance(self.viewer)
-        names = [self.active_tracks_name, *self.view_only_tracks_names]
-        graphs = [nx_from_tracks(tracks) for tracks in self.tracks]
-        dist_threshold = 10
-        matched_df = nle.matches_to_df(names, graphs, nle.match_nodes(graphs, dist_threshold))
-        conflicts = nle.get_conflicts(matched_df)
-        comparison_widget = ComparisonWidget(active_tracks_viewer, conflicts)
-        self.comparison_dock = self.viewer.window.add_dock_widget(
-            comparison_widget, name="Comparison", area="right"
-        )
-
     def update_tracks(self, index: int, new_tracks: Tracks):
         self._update_tracks_viewer(index, new_tracks, view_only=index != 0)
         self.tracks[index] = new_tracks
-        self.refresh_comparison_widget()
 
     def _update_tracks_viewer(self, index: int, new_tracks: Tracks, *, view_only: bool) -> None:
         """Replace a `TracksViewer`'s tracks, undoing side effects that assume it's the only one.

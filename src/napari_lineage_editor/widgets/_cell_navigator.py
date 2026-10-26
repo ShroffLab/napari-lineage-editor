@@ -126,7 +126,9 @@ class CellNavigatorWidget(QWidget):
         if parent_name is None:
             return None
         siblings = [
-            child_name for child_name in self._get_sulston_children(parent_name) if child_name != name
+            child_name
+            for child_name in self._get_sulston_children(parent_name)
+            if child_name != name
         ]
         return siblings[0] if siblings else None
 
