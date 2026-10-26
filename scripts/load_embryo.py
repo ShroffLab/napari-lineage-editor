@@ -33,6 +33,10 @@ _SMB_READ_THREADS = 4
 
 _ACTIVE_POINTS_SIZE = 5
 _VIEW_ONLY_POINTS_SIZE = 2
+# One offset per data axis (t, z, y, x) -- TextManager.translation is indexed
+# by the full ndim, not just the two currently-displayed axes, so a 2-tuple
+# raises IndexError as soon as napari tries to compute text coordinates.
+_NAME_TEXT_OFFSET = (0, 0, -10, 0)
 
 
 class ViewWormguides(QWidget):
@@ -115,6 +119,7 @@ class ViewWormguides(QWidget):
                 # compete visually with the editable lineage's own coloring.
                 overlay_tracks_viewer.set_color_feature(None)
                 self._set_points_size(overlay_tracks_viewer, _VIEW_ONLY_POINTS_SIZE)
+                self._set_points_text(overlay_tracks_viewer)
 
         self.tree_view_control_widget.set_lineages(
             dict(zip(self.track_names, self.tracks_viewers, strict=True)),
@@ -154,6 +159,7 @@ class ViewWormguides(QWidget):
         tracks_viewer.set_color_feature(color_feature_key)
         points_size = _VIEW_ONLY_POINTS_SIZE if view_only else _ACTIVE_POINTS_SIZE
         self._set_points_size(tracks_viewer, points_size)
+        self._set_points_text(tracks_viewer)
 
         for layer, visible in visible_by_layer.items():
             if layer in self.viewer.layers:
@@ -175,9 +181,17 @@ class ViewWormguides(QWidget):
         if points_layer is not None:
             points_layer.current_size = size
 
+    def _set_points_text(self, tracks_viewer: TracksViewer) -> None:
+        """Label each point with its cell name, offset so the text doesn't cover the point."""
+        points_layer = tracks_viewer.tracking_layers.points_layer
+        if points_layer is not None:
+            points_layer.text = "Name"
+            points_layer.text.translation = _NAME_TEXT_OFFSET
+
     def configure(self):
         tv = TracksViewer.get_instance(self.viewer)
         self._set_points_size(tv, _ACTIVE_POINTS_SIZE)
+        self._set_points_text(tv)
 
         for image in self.image_layers:
             image.reset_contrast_limits()
