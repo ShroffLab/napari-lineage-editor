@@ -12,17 +12,14 @@ from qtpy.QtWidgets import (
 )
 
 import napari_lineage_editor as nle
-from napari_lineage_editor import NameAnnotator
-from napari_lineage_editor.data import nx_from_tracks, registry, tracks_from_lineage_df
+from napari_lineage_editor.data import nx_from_tracks, registry
 from napari_lineage_editor.widgets import (
     CellNavigatorWidget,
     ComparisonWidget,
-    CropWidget,
     EmbryoLoaderWidget,
 )
 
 if TYPE_CHECKING:
-    import pandas as pd
     from dataset_registry import Registry
     from funtracks.data_model.tracks import Tracks
 
@@ -50,12 +47,10 @@ class ViewWormguides(QWidget):
         self.cell_navigator_widget = CellNavigatorWidget(
             TracksViewer.get_instance(viewer), {}, lambda _track_id: [], lambda _name: None
         )
-        self.crop_dock: object | None = None
         self.show_view_only_trees = False
 
         # book-keeping of data
         self.image_layers = []
-        self.track_dfs: list[pd.DataFrame] = []
         self.tracks: list[Tracks] = []
         self.tracks_viewers: list[TracksViewer] = []
         self.track_names: list[str] = []
@@ -100,12 +95,11 @@ class ViewWormguides(QWidget):
     def update_data(
         self,
         images: list[napari.layers.Image],
-        track_dfs: list[pd.DataFrame],
+        tracks_list: list[Tracks],
         tracks_names: list[str],
     ):
         self.clear()
-        self.track_dfs = track_dfs
-        self.tracks = [tracks_from_lineage_df(df) for df in track_dfs]
+        self.tracks = tracks_list
         self.tracks_viewers = []
         self.track_names = tracks_names
         self.image_layers = images
@@ -116,7 +110,6 @@ class ViewWormguides(QWidget):
         tv = TracksViewer.get_instance(self.viewer)
 
         if self.active_tracks is not None:
-            self._register_name_annotator(self.active_tracks)
             tv.update_tracks(self.active_tracks, self.active_tracks_name)
             self.tracks_viewers.append(tv)
 
@@ -134,7 +127,6 @@ class ViewWormguides(QWidget):
                     self._open_tree_view(name, overlay_tracks_viewer)
 
         self.refresh_comparison_widget()
-        self.refresh_crop_widget()
         self.configure()
 
     def _open_tree_view(self, tracks_name: str, tree_tracks_viewer: TracksViewer) -> None:
@@ -174,48 +166,10 @@ class ViewWormguides(QWidget):
             comparison_widget, name="Comparison", area="right"
         )
 
-    def refresh_crop_widget(self) -> None:
-        """Tear down and rebuild the crop dock to match the currently-loaded lineages.
-
-        Always rebuilt from scratch (rather than updated in place) on every
-        load, so a stale slider range from the previous load never lingers.
-        """
-        if self.crop_dock is not None:
-            self.viewer.window.remove_dock_widget(self.crop_dock)
-            self.crop_dock = None
-
-        if len(self.tracks) < 1:
-            return
-
-        crop_widget = CropWidget(self.tracks, self.track_names)
-        crop_widget.range_changed.connect(self.update_tracks)
-        self.crop_dock = self.viewer.window.add_dock_widget(crop_widget, name="Crop", area="right")
-
     def update_tracks(self, index: int, new_tracks: Tracks):
-        if index == 0:
-            self._register_name_annotator(new_tracks)
         self._update_tracks_viewer(index, new_tracks, view_only=index != 0)
         self.tracks[index] = new_tracks
         self.refresh_comparison_widget()
-
-    def _register_name_annotator(self, tracks: Tracks) -> None:
-        """Register a `NameAnnotator` on the editable/active tracks, so renames keep working.
-
-        Only the active tracks are ever renamed (see `EditCellNamesWidget`),
-        so view-only overlays don't need one. Each crop produces a fresh
-        `Tracks` instance (see `CropWidget.crop_tracks`) with its own fresh
-        `NameAnnotator`, so the navigator/edit widgets are re-pointed at its
-        lookups every time, not just on first load.
-        """
-        name_annotator = NameAnnotator(tracks, self.data_widget.sulston_lineage)
-        tracks.annotators.append(name_annotator)
-        tracks.enable_features([name_annotator.name_key])
-
-        self.cell_navigator_widget.set_name_lookups(
-            name_annotator.track_id_by_name,
-            name_annotator.get_valid_names,
-            name_annotator.get_sulston_sibling_name,
-        )
 
     def _update_tracks_viewer(self, index: int, new_tracks: Tracks, *, view_only: bool) -> None:
         """Replace a `TracksViewer`'s tracks, undoing side effects that assume it's the only one.

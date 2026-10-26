@@ -7,23 +7,70 @@ from psygnal import Signal
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QHBoxLayout,
+    QLabel,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
+from tracksdata import NodeAttr
 
 from napari_lineage_editor.data import (
     get_sulston,
     load_images,
     load_lineage,
+    tracks_from_lineage_df,
 )
 
 if TYPE_CHECKING:
     import pandas as pd
     from dataset_registry import Registry, Representation
-
+from funtracks.data_model import Tracks
 
 SULSTON_SAMPLE_NAME = "Sulston"
+
+
+class CropWidget(QWidget):
+    """One start/end time setting, applied to every loaded `Tracks` on "Crop".
+
+    The spinboxes' allowed range spans the union of every track's own
+    min/max time, since different lineages can start/end at different
+    timepoints; cropping clips each track to whichever part of
+    `[start, end)` it actually has.
+    """
+
+    def __init__(self) -> None:
+        """
+        Args:
+            tracks_list: The loaded `Tracks` objects to crop, one shared
+                start/end setting is applied to all of them.
+            names: Display names for each entry in `tracks_list`, in the
+                same order. Defaults to `"Tracks {i}"` if not given.
+        """
+        super().__init__()
+        self._start_box = QSpinBox()
+
+        self._end_box = QSpinBox()
+        self._range_label = QLabel("(allowed range: )")
+
+        row = QHBoxLayout()
+        row.addWidget(QLabel("start"))
+        row.addWidget(self._start_box)
+        row.addWidget(QLabel("end"))
+        row.addWidget(self._end_box)
+        row.addWidget(self._range_label)
+
+        layout = QVBoxLayout()
+        layout.addLayout(row)
+        self.setLayout(layout)
+
+    def update_range(self, min_time: int, max_time: int) -> None:
+        self._start_box.setRange(min_time, max_time)
+        self._start_box.setValue(min_time)
+        self._end_box.setRange(min_time, max_time)
+        self._end_box.setValue(max_time)
+        self._range_label.setText(f"(allowed range: {min_time}, {max_time})")
 
 
 class EmbryoLoaderWidget(QWidget):
@@ -49,6 +96,8 @@ class EmbryoLoaderWidget(QWidget):
 
         self._rep_checkboxes_layout = QVBoxLayout()
 
+        self._crop_widget = CropWidget()
+
         load_button = QPushButton("Load")
         load_button.clicked.connect(self._on_load_clicked)
 
@@ -58,6 +107,7 @@ class EmbryoLoaderWidget(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(self._combo)
         layout.addLayout(self._rep_checkboxes_layout)
+        layout.addWidget(self._crop_widget)
         layout.addWidget(self._load_into_memory_checkbox)
         layout.addWidget(load_button)
         self.setLayout(layout)
@@ -81,9 +131,16 @@ class EmbryoLoaderWidget(QWidget):
             self._add_rep(image_rep)
         for rep_id in self.registry.list_representations(sample.id):
             rep = self.registry.load_representation(sample.id, rep_id)
-            if rep.metadata.type == "image" and not show_all:
-                continue
+            if rep.metadata.type == "image":
+                if image_rep is None:
+                    image_rep = rep
+                if not show_all:
+                    continue
             self._add_rep(rep)
+
+        start_time = image_rep.metadata.start_time if image_rep is not None else 0
+        end_time = image_rep.metadata.end_time if image_rep is not None else 500
+        self._crop_widget.update_range(start_time, end_time)
 
     def _checked_rep_ids(self) -> list[str]:
         ids = []
@@ -93,8 +150,17 @@ class EmbryoLoaderWidget(QWidget):
                 ids.append(checkbox.property("representation_id"))
         return ids
 
-    def _load_image_rep(self, representation: Representation) -> napari.layers.Image:
+    def _load_image_rep(
+        self, representation: Representation, start_time: int, end_time: int
+    ) -> napari.layers.Image:
         images = load_images(representation, self.registry.path)
+        # Both bounds are in the representation's own (real) timepoints, so
+        # convert to its array-local indices before slicing -- its first
+        # frame is at `start_time`, not 0.
+        rep_start = representation.metadata.start_time
+        local_start = start_time - rep_start
+        local_end = end_time - rep_start + 1
+        images = images[local_start:local_end]
         if self._load_into_memory_checkbox.isChecked():
             images = images.compute()
         # Offset the time axis by start_time so napari's shared time slider
@@ -102,7 +168,7 @@ class EmbryoLoaderWidget(QWidget):
         # representations of the same embryo start at different t (e.g.
         # embryo 2's flat series starts at t=0, its per-slice at t=1).
         translate = [0] * images.ndim
-        translate[0] = representation.metadata.start_time
+        translate[0] = start_time
         return napari.layers.Image(
             images, name=representation.name, blending="additive", translate=translate
         )
@@ -123,9 +189,27 @@ class EmbryoLoaderWidget(QWidget):
 
         return lineage_df, representation.name
 
+    @staticmethod
+    def crop_tracks(tracks: Tracks, start: int, end: int) -> Tracks:
+        time_key = tracks.features.time_key
+        subgraph = tracks.graph_full.filter(
+            (NodeAttr(time_key) >= start) & (NodeAttr(time_key) < end)
+        ).subgraph()
+        return Tracks(
+            subgraph.detach(),
+            scale=tracks.scale,
+            ndim=tracks.ndim,
+            features=tracks.features,
+            intensity_images=tracks._intensity_images,
+            channel_names=tracks._channel_names,
+        )
+
     def _on_load_clicked(self) -> None:
+        start_time = self._crop_widget._start_box.value()
+        end_time = self._crop_widget._end_box.value()
+
         images = []
-        track_dfs = []
+        tracks_list = []
         tracks_names = []
         sample = self._samples_by_name[self._combo.currentText()]
         representation_ids = self._checked_rep_ids()
@@ -134,9 +218,12 @@ class EmbryoLoaderWidget(QWidget):
         for representation_id in representation_ids:
             representation = self.registry.load_representation(sample.id, representation_id)
             if representation.metadata.type == "image":
-                images.append(self._load_image_rep(representation))
+                images.append(self._load_image_rep(representation, start_time, end_time))
             elif representation.metadata.type == "lineage":
-                track, name = self._load_lineage_rep(representation)
-                track_dfs.append(track)
+                track_df, name = self._load_lineage_rep(representation)
+                tracks = self.crop_tracks(
+                    tracks_from_lineage_df(track_df), start_time, end_time + 1
+                )
+                tracks_list.append(tracks)
                 tracks_names.append(name)
-        self.new_data.emit(images, track_dfs, tracks_names)
+        self.new_data.emit(images, tracks_list, tracks_names)
