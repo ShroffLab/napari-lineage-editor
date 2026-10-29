@@ -248,6 +248,14 @@ def main() -> None:
     viewer = napari.Viewer(title="Wormguides lineage editor")
     loader_widget = ViewWormguides(viewer, reg)
     viewer.window.add_dock_widget(loader_widget, name="Lineage Editor")
+
+    # DEBUG: pre-configure the shared OrthoViewManager so the plugin menu's
+    # "Toggle/Show Orthogonal Views" uses napari-track-edit's TrackGraph-aware
+    # copy_layer/sync_filters instead of the unconfigured default.
+    from napari_track_edit.data_views.views.ortho_views import initialize_ortho_views
+
+    initialize_ortho_views(viewer)
+
     napari.run()
 
 
