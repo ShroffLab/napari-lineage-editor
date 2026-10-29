@@ -261,7 +261,7 @@ class CellNavigatorWidget(QWidget):
             show_warning(f"No tracklet named {name!r}")
             return
 
-        current_time = int(self._tracks_viewer.viewer.dims.current_step[0])
+        current_time = int(self._tracks_viewer.viewer.dims.point[0])
         node = next(
             (n for t, n in tracks.get_track_node_times(track_id) if t == current_time), None
         )
