@@ -133,10 +133,17 @@ class CellNavigatorWidget(QWidget):
         return siblings[0] if siblings else None
 
     def _get_valid_names(self, track_id: int) -> list[str]:
-        """Name(s) that would satisfy Sulston for `track_id`, given its actual graph-parent.
+        """Name(s) that would satisfy Sulston for `track_id`, given its parent's name.
 
-        A tracklet with no graph-parent (the lineage's start) has no
-        suggestion -- any root name is as good as another without more
+        Looks up the parent's name via the Sulston reference lineage first,
+        since the tracklet's own graph-parent may have been cropped out of
+        the active tracks even though the tracklet itself still has a name.
+        Falls back to the graph-parent's current name when `track_id` has no
+        name yet (so there's nothing to look up in Sulston), matching
+        Sulston's own edges only when a graph-parent is actually present.
+
+        A tracklet with no name and no graph-parent (the lineage's start) has
+        no suggestion -- any root name is as good as another without more
         context. Otherwise, suggestions are all of Sulston's children of the
         parent's *current* name -- both daughters, even if one is already
         held by a sibling tracklet elsewhere, since the user may want to
@@ -144,6 +151,13 @@ class CellNavigatorWidget(QWidget):
         """
         tracks = self._tracks_viewer.tracks
         _time, first_node = tracks.get_track_node_times(track_id)[0]
+        name = tracks.get_node_attr(first_node, NAME_KEY)
+        if name is not None:
+            parent_name = self._get_sulston_parent(name)
+            if parent_name is None:
+                return []
+            return self._get_sulston_children(parent_name)
+
         preds = tracks.predecessors(first_node)
         if not preds:
             return []
