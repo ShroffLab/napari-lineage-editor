@@ -1,4 +1,3 @@
-from ._cell_id import EditCellNamesWidget
 from ._cell_navigator import CellNavigatorWidget
 from ._compare import ComparisonWidget
 from ._crop import CropWidget
@@ -11,7 +10,6 @@ __all__ = [
     "ComparisonWidget",
     "CropWidget",
     "DriftNavigatorWidget",
-    "EditCellNamesWidget",
     "EmbryoLoaderWidget",
     "TreeViewControlWidget",
 ]
