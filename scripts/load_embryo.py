@@ -51,6 +51,7 @@ class ViewWormguides(QWidget):
     def __init__(self, viewer: napari.Viewer, registry: Registry) -> None:
         super().__init__()
         self.viewer = viewer
+        viewer.scene.camera.orientation = ("away", "down", "right")
         # widgets
         self.data_widget = EmbryoLoaderWidget(registry)
         self.cell_navigator_widget = CellNavigatorWidget(
